@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import AdminModal from '../components/admin/AdminModal.jsx';
 import AdminPageHeader from '../components/admin/AdminPageHeader.jsx';
 import ConfirmDialog from '../components/admin/ConfirmDialog.jsx';
@@ -9,6 +9,15 @@ import { useToast } from '../context/ToastContext.jsx';
 import { useAuth } from '../hooks/useAuth.js';
 import { createProduct, deleteProduct, getCategories, getProducts, getPublicAssetUrl, updateProduct } from '../services/api.js';
 import { formatCurrency, formatCurrencyInput } from '../utils/format.js';
+import {
+  genderOptions,
+  getGenderLabel,
+  getMaterialGroupLabel,
+  getProductMaterialLabel,
+  materialDetailOptionsByGroup,
+  materialGroupOptions,
+  normalizeMaterialDetail
+} from '../utils/productFilters.js';
 
 const initialFormState = {
   name: '',
@@ -19,13 +28,23 @@ const initialFormState = {
   images: '',
   category: '',
   material: '',
-  gender: 'Unisex',
+  materialGroup: 'gold',
+  materialDetail: 'Vàng 18K',
+  gender: 'female',
   stock: '',
+  sold: '',
   featured: false,
   isActive: true
 };
 
-const genderOptions = ['Nam', 'Nữ', 'Unisex'];
+const adminMaterialDetailOptions = [
+  ...Object.values(materialDetailOptionsByGroup).flat().map((material) => ({
+    label: material,
+    value: material,
+    type: 'detail'
+  })),
+  { label: 'Khác', value: 'other', type: 'group' }
+];
 
 function normalizeSlug(value) {
   return value
@@ -38,6 +57,8 @@ function normalizeSlug(value) {
 }
 
 function buildFormState(product) {
+  const materialDetail = normalizeMaterialDetail(product.materialDetail || product.material || '');
+
   return {
     name: product.name || '',
     slug: product.slug || '',
@@ -47,8 +68,11 @@ function buildFormState(product) {
     images: Array.isArray(product.images) ? product.images.join('\n') : '',
     category: product.category?._id || '',
     material: product.material || '',
-    gender: product.gender || 'Unisex',
+    materialGroup: product.materialGroup || 'gold',
+    materialDetail,
+    gender: product.gender || 'female',
     stock: String(product.stock ?? ''),
+    sold: String(product.sold ?? 0),
     featured: Boolean(product.isFeatured),
     isActive: product.status === 'active'
   };
@@ -63,11 +87,13 @@ function validateForm(formState) {
   const price = Number(formState.price);
   const salePrice = Number(formState.salePrice);
   const stock = Number(formState.stock);
+  const sold = Number(formState.sold || 0);
 
   if (!Number.isFinite(price) || price <= 0) return 'Giá gốc phải lớn hơn 0.';
   if (!Number.isFinite(salePrice) || salePrice <= 0) return 'Giá bán phải lớn hơn 0.';
   if (salePrice > price) return 'Giá bán không được lớn hơn giá gốc.';
   if (!Number.isInteger(stock) || stock < 0) return 'Tồn kho phải là số nguyên lớn hơn hoặc bằng 0.';
+  if (!Number.isInteger(sold) || sold < 0) return 'Số lượng đã bán phải là số nguyên lớn hơn hoặc bằng 0.';
 
   const images = formState.images.split('\n').map((item) => item.trim()).filter(Boolean);
   if (!images.length) return 'Cần ít nhất 1 ảnh sản phẩm.';
@@ -79,6 +105,7 @@ function buildPayload(formState) {
   const oldPrice = Number(formState.price || 0);
   const price = Number(formState.salePrice || 0);
   const discount = oldPrice > price ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0;
+  const materialDetail = formState.materialDetail.trim();
 
   return {
     name: formState.name.trim(),
@@ -89,9 +116,12 @@ function buildPayload(formState) {
     discount,
     images: formState.images.split('\n').map((item) => item.trim()).filter(Boolean),
     category: formState.category,
-    material: formState.material.trim(),
+    material: materialDetail,
+    materialGroup: formState.materialGroup,
+    materialDetail,
     gender: formState.gender,
     stock: Number(formState.stock || 0),
+    sold: Number(formState.sold || 0),
     isFeatured: formState.featured,
     status: formState.isActive ? 'active' : 'inactive'
   };
@@ -116,12 +146,16 @@ function AdminProductsPage() {
   const { showToast } = useToast();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [pagination, setPagination] = useState({ page: 1, limit: 12, total: 0, totalPages: 1 });
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [searchKeyword, setSearchKeyword] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [materialFilter, setMaterialFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [stockFilter, setStockFilter] = useState('');
+  const [genderFilter, setGenderFilter] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [formState, setFormState] = useState(initialFormState);
   const [editingProduct, setEditingProduct] = useState(null);
   const [viewingProduct, setViewingProduct] = useState(null);
@@ -130,22 +164,32 @@ function AdminProductsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
-      const keyword = searchKeyword.trim().toLowerCase();
-      const matchKeyword = keyword ? [product.name, product.slug].filter(Boolean).some((value) => value.toLowerCase().includes(keyword)) : true;
-      const matchCategory = categoryFilter ? product.category?._id === categoryFilter : true;
-      const matchStatus = statusFilter ? product.status === statusFilter : true;
-      const matchStock =
-        stockFilter === ''
-          ? true
-          : stockFilter === 'in_stock'
-            ? product.stock > 0
-            : product.stock <= 0;
+  const loadProducts = useCallback(
+    async (page = currentPage) => {
+      const params = {
+        page,
+        limit: pagination.limit,
+        q: searchKeyword.trim(),
+        category: categoryFilter,
+        material: adminMaterialDetailOptions.find((option) => option.value === materialFilter)?.type === 'detail' ? materialFilter : '',
+        materialGroup: materialFilter === 'other' ? 'other' : '',
+        status: statusFilter,
+        stockStatus: stockFilter,
+        gender: genderFilter
+      };
 
-      return matchKeyword && matchCategory && matchStatus && matchStock;
-    });
-  }, [products, searchKeyword, categoryFilter, statusFilter, stockFilter]);
+      Object.keys(params).forEach((key) => {
+        if (params[key] === '') {
+          delete params[key];
+        }
+      });
+
+      const response = await getProducts(params);
+      setProducts(response.products || []);
+      setPagination(response.pagination || { page, limit: pagination.limit, total: 0, totalPages: 1 });
+    },
+    [categoryFilter, currentPage, genderFilter, materialFilter, pagination.limit, searchKeyword, statusFilter, stockFilter]
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -154,11 +198,25 @@ function AdminProductsPage() {
       try {
         setLoading(true);
         setErrorMessage('');
-        const [productsResponse, categoriesResponse] = await Promise.all([getProducts({ limit: 100 }), getCategories()]);
+        const [productsResponse, categoriesResponse] = await Promise.all([
+          getProducts({
+            page: currentPage,
+            limit: pagination.limit,
+            q: searchKeyword.trim(),
+            category: categoryFilter || undefined,
+            material: adminMaterialDetailOptions.find((option) => option.value === materialFilter)?.type === 'detail' ? materialFilter : undefined,
+            materialGroup: materialFilter === 'other' ? 'other' : undefined,
+            status: statusFilter || undefined,
+            stockStatus: stockFilter || undefined,
+            gender: genderFilter || undefined
+          }),
+          getCategories()
+        ]);
 
         if (!isMounted) return;
 
         setProducts(productsResponse.products || []);
+        setPagination(productsResponse.pagination || { page: currentPage, limit: pagination.limit, total: 0, totalPages: 1 });
         setCategories(categoriesResponse.categories || []);
       } catch (error) {
         if (isMounted) {
@@ -174,7 +232,14 @@ function AdminProductsPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [categoryFilter, currentPage, genderFilter, materialFilter, pagination.limit, searchKeyword, statusFilter, stockFilter]);
+
+  function resetToFirstPage(setter) {
+    return (value) => {
+      setter(value);
+      setCurrentPage(1);
+    };
+  }
 
   function openCreateModal() {
     setEditingProduct(null);
@@ -194,6 +259,9 @@ function AdminProductsPage() {
       const next = { ...current, [name]: type === 'checkbox' ? checked : value };
       if (name === 'name' && !editingProduct) {
         next.slug = normalizeSlug(value);
+      }
+      if (name === 'materialGroup') {
+        next.materialDetail = materialDetailOptionsByGroup[value]?.[0] || '';
       }
       return next;
     });
@@ -219,6 +287,7 @@ function AdminProductsPage() {
       } else {
         const response = await createProduct(payload, token);
         setProducts((current) => [response.product, ...current]);
+        setCurrentPage(1);
         showToast({ title: 'Đã thêm sản phẩm mới', type: 'success' });
       }
 
@@ -239,7 +308,10 @@ function AdminProductsPage() {
     try {
       setDeleting(true);
       await deleteProduct(productToDelete._id, token);
-      setProducts((current) => current.filter((item) => item._id !== productToDelete._id));
+      await loadProducts(products.length === 1 && currentPage > 1 ? currentPage - 1 : currentPage);
+      if (products.length === 1 && currentPage > 1) {
+        setCurrentPage((page) => page - 1);
+      }
       setProductToDelete(null);
       showToast({ title: 'Đã xóa sản phẩm', type: 'success' });
     } catch (error) {
@@ -258,7 +330,7 @@ function AdminProductsPage() {
         eyebrow="Sản phẩm"
         title="Quản lý sản phẩm"
         description="Danh sách sản phẩm được tổ chức theo bảng, có tìm kiếm, lọc nhanh và form mở trong modal để tránh rời màn hình."
-        meta={loading ? 'Đang tải sản phẩm...' : `${filteredProducts.length} sản phẩm`}
+        meta={loading ? 'Đang tải sản phẩm...' : `${pagination.total} sản phẩm`}
         actions={
           <button type="button" onClick={openCreateModal} className="btn-secondary">
             Thêm sản phẩm
@@ -269,8 +341,8 @@ function AdminProductsPage() {
       {errorMessage ? <div className="state-error">{errorMessage}</div> : null}
 
       <FilterBar>
-        <input value={searchKeyword} onChange={(event) => setSearchKeyword(event.target.value)} placeholder="Tìm theo tên sản phẩm..." className="input-field sm:max-w-xs" />
-        <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className="select-field sm:max-w-xs">
+        <input value={searchKeyword} onChange={(event) => resetToFirstPage(setSearchKeyword)(event.target.value)} placeholder="Tìm theo tên sản phẩm..." className="input-field sm:max-w-xs" />
+        <select value={categoryFilter} onChange={(event) => resetToFirstPage(setCategoryFilter)(event.target.value)} className="select-field sm:max-w-xs">
           <option value="">Tất cả danh mục</option>
           {categories.map((category) => (
             <option key={category._id} value={category._id}>
@@ -278,15 +350,32 @@ function AdminProductsPage() {
             </option>
           ))}
         </select>
-        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="select-field sm:max-w-xs">
+        <select value={materialFilter} onChange={(event) => resetToFirstPage(setMaterialFilter)(event.target.value)} className="select-field sm:max-w-xs">
+          <option value="">Tất cả chất liệu chi tiết</option>
+          {adminMaterialDetailOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <select value={statusFilter} onChange={(event) => resetToFirstPage(setStatusFilter)(event.target.value)} className="select-field sm:max-w-xs">
           <option value="">Tất cả trạng thái</option>
           <option value="active">Đang bán</option>
           <option value="inactive">Tạm ẩn</option>
           <option value="draft">Bản nháp</option>
         </select>
-        <select value={stockFilter} onChange={(event) => setStockFilter(event.target.value)} className="select-field sm:max-w-xs">
+        <select value={genderFilter} onChange={(event) => resetToFirstPage(setGenderFilter)(event.target.value)} className="select-field sm:max-w-xs">
+          <option value="">Tất cả giới tính</option>
+          {genderOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <select value={stockFilter} onChange={(event) => resetToFirstPage(setStockFilter)(event.target.value)} className="select-field sm:max-w-xs">
           <option value="">Tồn kho bất kỳ</option>
           <option value="in_stock">Còn hàng</option>
+          <option value="low_stock">Sắp hết hàng</option>
           <option value="out_stock">Hết hàng</option>
         </select>
       </FilterBar>
@@ -297,57 +386,97 @@ function AdminProductsPage() {
             <div key={index} className="skeleton-block h-20" />
           ))}
         </div>
-      ) : filteredProducts.length === 0 ? (
+      ) : products.length === 0 ? (
         <div className="state-empty">Không có sản phẩm phù hợp với bộ lọc hiện tại.</div>
       ) : (
-        <DataTable
-          columns={[
-            { key: 'product', label: 'Sản phẩm' },
-            { key: 'category', label: 'Danh mục' },
-            { key: 'price', label: 'Giá bán' },
-            { key: 'stock', label: 'Tồn kho' },
-            { key: 'status', label: 'Trạng thái' },
-            { key: 'actions', label: 'Hành động', align: 'right' }
-          ]}
-        >
-          {filteredProducts.map((product) => (
-            <tr key={product._id} className="border-t border-slate-100 align-top">
-              <td className="px-5 py-4">
-                <div className="flex gap-3">
-                  <div className="h-16 w-16 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-                    {product.images?.[0] ? <img src={getPublicAssetUrl(product.images[0])} alt={product.name} className="h-full w-full object-cover" /> : null}
+        <div className="space-y-4">
+          <DataTable
+            columns={[
+              { key: 'product', label: 'Sản phẩm' },
+              { key: 'category', label: 'Danh mục' },
+              { key: 'material', label: 'Chất liệu' },
+              { key: 'gender', label: 'Giới tính' },
+              { key: 'price', label: 'Giá bán' },
+              { key: 'stock', label: 'Kho / đã bán' },
+              { key: 'status', label: 'Trạng thái' },
+              { key: 'actions', label: 'Hành động', align: 'right' }
+            ]}
+          >
+            {products.map((product) => (
+              <tr key={product._id} className="border-t border-slate-100 align-top">
+                <td className="px-5 py-4">
+                  <div className="flex gap-3">
+                    <div className="h-16 w-16 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                      {product.images?.[0] ? <img src={getPublicAssetUrl(product.images[0])} alt={product.name} className="h-full w-full object-cover" /> : null}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-navy">{product.name}</p>
+                      <p className="mt-1 text-slate-500">{product.slug}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-semibold text-navy">{product.name}</p>
-                    <p className="mt-1 text-slate-500">{product.slug}</p>
+                </td>
+                <td className="px-5 py-4 text-slate-600">{product.category?.name || '--'}</td>
+                <td className="px-5 py-4 text-slate-600">{getProductMaterialLabel(product) || '--'}</td>
+                <td className="px-5 py-4 text-slate-600">{getGenderLabel(product.gender) || '--'}</td>
+                <td className="px-5 py-4">
+                  <p className="font-semibold text-navy">{formatCurrency(product.price)}</p>
+                  {product.oldPrice > product.price ? <p className="mt-1 text-slate-400 line-through">{formatCurrency(product.oldPrice)}</p> : null}
+                </td>
+                <td className="px-5 py-4 text-slate-600">
+                  <p>Tồn: {product.stock}</p>
+                  <p className="mt-1 text-slate-500">Bán: {product.sold ?? 0}</p>
+                </td>
+                <td className="px-5 py-4">
+                  <StatusBadge label={getStatusLabel(product)} tone={getStatusTone(product)} />
+                </td>
+                <td className="px-5 py-4">
+                  <div className="flex justify-end gap-2">
+                    <button type="button" onClick={() => setViewingProduct(product)} className="btn-outline !px-4 !py-2">
+                      Xem
+                    </button>
+                    <button type="button" onClick={() => openEditModal(product)} className="btn-outline !px-4 !py-2">
+                      Sửa
+                    </button>
+                    <button type="button" onClick={() => setProductToDelete(product)} className="inline-flex items-center justify-center rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50">
+                      Xóa
+                    </button>
                   </div>
-                </div>
-              </td>
-              <td className="px-5 py-4 text-slate-600">{product.category?.name || '--'}</td>
-              <td className="px-5 py-4">
-                <p className="font-semibold text-navy">{formatCurrency(product.price)}</p>
-                {product.oldPrice > product.price ? <p className="mt-1 text-slate-400 line-through">{formatCurrency(product.oldPrice)}</p> : null}
-              </td>
-              <td className="px-5 py-4 text-slate-600">{product.stock}</td>
-              <td className="px-5 py-4">
-                <StatusBadge label={getStatusLabel(product)} tone={getStatusTone(product)} />
-              </td>
-              <td className="px-5 py-4">
-                <div className="flex justify-end gap-2">
-                  <button type="button" onClick={() => setViewingProduct(product)} className="btn-outline !px-4 !py-2">
-                    Xem
-                  </button>
-                  <button type="button" onClick={() => openEditModal(product)} className="btn-outline !px-4 !py-2">
-                    Sửa
-                  </button>
-                  <button type="button" onClick={() => setProductToDelete(product)} className="inline-flex items-center justify-center rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50">
-                    Xóa
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </DataTable>
+                </td>
+              </tr>
+            ))}
+          </DataTable>
+
+          {pagination.totalPages > 1 ? (
+            <div className="flex flex-col gap-3 rounded-[24px] border border-slate-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-slate-600">
+                Trang <span className="font-semibold text-navy">{pagination.page}</span> / {pagination.totalPages}
+                <span className="ml-2">({pagination.total} sản phẩm)</span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className="btn-outline !px-4 !py-2" disabled={currentPage <= 1} onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}>
+                  Trước
+                </button>
+                {Array.from({ length: pagination.totalPages }).slice(Math.max(0, currentPage - 3), Math.min(pagination.totalPages, currentPage + 2)).map((_, index) => {
+                  const startPage = Math.max(1, currentPage - 2);
+                  const pageNumber = startPage + index;
+                  return (
+                    <button
+                      key={pageNumber}
+                      type="button"
+                      onClick={() => setCurrentPage(pageNumber)}
+                      className={pageNumber === currentPage ? 'btn-secondary !px-4 !py-2' : 'btn-outline !px-4 !py-2'}
+                    >
+                      {pageNumber}
+                    </button>
+                  );
+                })}
+                <button type="button" className="btn-outline !px-4 !py-2" disabled={currentPage >= pagination.totalPages} onClick={() => setCurrentPage((page) => Math.min(pagination.totalPages, page + 1))}>
+                  Sau
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
       )}
 
       <AdminModal
@@ -392,22 +521,46 @@ function AdminProductsPage() {
               </select>
             </label>
             <label>
-              <span className="field-label">Chất liệu</span>
-              <input name="material" value={formState.material} onChange={handleChange} className="input-field" />
-            </label>
-            <label>
               <span className="field-label">Giới tính</span>
               <select name="gender" value={formState.gender} onChange={handleChange} className="select-field">
-                {genderOptions.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
+                {genderOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </select>
             </label>
             <label>
+              <span className="field-label">Nhóm chất liệu</span>
+              <select name="materialGroup" value={formState.materialGroup} onChange={handleChange} className="select-field">
+                {materialGroupOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span className="field-label">Chi tiết chất liệu</span>
+              {formState.materialGroup === 'other' ? (
+                <input name="materialDetail" value={formState.materialDetail} onChange={handleChange} className="input-field" placeholder="Ví dụ: Thép không gỉ" />
+              ) : (
+                <select name="materialDetail" value={formState.materialDetail} onChange={handleChange} className="select-field">
+                  {(materialDetailOptionsByGroup[formState.materialGroup] || []).map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </label>
+            <label>
               <span className="field-label">Tồn kho *</span>
               <input type="number" name="stock" value={formState.stock} onChange={handleChange} className="input-field" />
+            </label>
+            <label>
+              <span className="field-label">Số lượng đã bán</span>
+              <input type="number" name="sold" value={formState.sold} onChange={handleChange} className="input-field" />
             </label>
             <label className="md:col-span-2">
               <span className="field-label">Danh sách ảnh *</span>
@@ -465,8 +618,10 @@ function AdminProductsPage() {
                 <p><span className="font-semibold text-navy">Giá bán:</span> {formatCurrency(viewingProduct.price)}</p>
                 <p><span className="font-semibold text-navy">Giá gốc:</span> {formatCurrency(viewingProduct.oldPrice)}</p>
                 <p><span className="font-semibold text-navy">Tồn kho:</span> {viewingProduct.stock}</p>
-                <p><span className="font-semibold text-navy">Chất liệu:</span> {viewingProduct.material || '--'}</p>
-                <p><span className="font-semibold text-navy">Giới tính:</span> {viewingProduct.gender || '--'}</p>
+                <p><span className="font-semibold text-navy">Đã bán:</span> {viewingProduct.sold ?? 0}</p>
+                <p><span className="font-semibold text-navy">Giới tính:</span> {getGenderLabel(viewingProduct.gender) || '--'}</p>
+                <p><span className="font-semibold text-navy">Nhóm chất liệu:</span> {getMaterialGroupLabel(viewingProduct.materialGroup) || '--'}</p>
+                <p><span className="font-semibold text-navy">Chi tiết chất liệu:</span> {getProductMaterialLabel(viewingProduct) || '--'}</p>
                 <p><span className="font-semibold text-navy">Trạng thái:</span> {getStatusLabel(viewingProduct)}</p>
               </div>
             </div>

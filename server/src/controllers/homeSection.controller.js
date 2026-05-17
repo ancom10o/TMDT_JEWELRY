@@ -2,20 +2,23 @@ import Banner from '../models/Banner.js';
 import Category from '../models/Category.js';
 import HomeSection from '../models/HomeSection.js';
 import Product from '../models/Product.js';
+import { normalizeHomeSectionPayload, serializeHomeSection } from '../utils/homeSections.js';
 
 async function validateSectionPayload(payload) {
-  if (Array.isArray(payload.productIds) && payload.productIds.length > 0) {
-    const existingProducts = await Product.countDocuments({ _id: { $in: payload.productIds } });
+  const normalizedPayload = normalizeHomeSectionPayload(payload);
 
-    if (existingProducts !== payload.productIds.length) {
+  if (Array.isArray(normalizedPayload.products) && normalizedPayload.products.length > 0) {
+    const existingProducts = await Product.countDocuments({ _id: { $in: normalizedPayload.products } });
+
+    if (existingProducts !== normalizedPayload.products.length) {
       return 'Danh sach san pham co phan tu khong ton tai.';
     }
   }
 
-  if (Array.isArray(payload.bannerIds) && payload.bannerIds.length > 0) {
-    const existingBanners = await Banner.countDocuments({ _id: { $in: payload.bannerIds } });
+  if (Array.isArray(normalizedPayload.banners) && normalizedPayload.banners.length > 0) {
+    const existingBanners = await Banner.countDocuments({ _id: { $in: normalizedPayload.banners } });
 
-    if (existingBanners !== payload.bannerIds.length) {
+    if (existingBanners !== normalizedPayload.banners.length) {
       return 'Danh sach banner co phan tu khong ton tai.';
     }
   }
@@ -25,7 +28,15 @@ async function validateSectionPayload(payload) {
 
 function buildSectionQuery(activeOnly = false) {
   return HomeSection.find(activeOnly ? { isActive: true } : {})
+    .populate('banners')
     .populate('bannerIds')
+    .populate({
+      path: 'products',
+      populate: {
+        path: 'category',
+        select: 'name slug'
+      }
+    })
     .populate({
       path: 'productIds',
       populate: {
@@ -38,7 +49,15 @@ function buildSectionQuery(activeOnly = false) {
 
 function getSectionById(sectionId) {
   return HomeSection.findById(sectionId)
+    .populate('banners')
     .populate('bannerIds')
+    .populate({
+      path: 'products',
+      populate: {
+        path: 'category',
+        select: 'name slug'
+      }
+    })
     .populate({
       path: 'productIds',
       populate: {
@@ -56,15 +75,15 @@ export async function getPublicHomeSections(req, res, next) {
     ]);
 
     const normalizedSections = sections.map((section) => {
-      const plainSection = section.toObject();
+      const plainSection = serializeHomeSection(section);
 
       return {
         ...plainSection,
-        bannerIds: Array.isArray(plainSection.bannerIds)
-          ? plainSection.bannerIds.filter((banner) => banner?.isActive)
+        banners: Array.isArray(plainSection.banners)
+          ? plainSection.banners.filter((banner) => banner?.isActive)
           : [],
-        productIds: Array.isArray(plainSection.productIds)
-          ? plainSection.productIds.filter((product) => product?.status === 'active')
+        products: Array.isArray(plainSection.products)
+          ? plainSection.products.filter((product) => product?.status === 'active')
           : []
       };
     });
@@ -89,7 +108,7 @@ export async function getAdminHomeSections(req, res, next) {
     ]);
 
     res.json({
-      sections,
+      sections: sections.map((section) => serializeHomeSection(section)),
       banners,
       products,
       categories
@@ -101,16 +120,17 @@ export async function getAdminHomeSections(req, res, next) {
 
 export async function createHomeSection(req, res, next) {
   try {
-    const validationMessage = await validateSectionPayload(req.body);
+    const payload = normalizeHomeSectionPayload(req.body);
+    const validationMessage = await validateSectionPayload(payload);
 
     if (validationMessage) {
       return res.status(400).json({ message: validationMessage });
     }
 
-    const section = await HomeSection.create(req.body);
+    const section = await HomeSection.create(payload);
     const populatedSection = await getSectionById(section._id);
 
-    res.status(201).json({ section: populatedSection });
+    res.status(201).json({ section: serializeHomeSection(populatedSection) });
   } catch (error) {
     next(error);
   }
@@ -118,13 +138,14 @@ export async function createHomeSection(req, res, next) {
 
 export async function updateHomeSection(req, res, next) {
   try {
-    const validationMessage = await validateSectionPayload(req.body);
+    const payload = normalizeHomeSectionPayload(req.body, { partial: true });
+    const validationMessage = await validateSectionPayload(payload);
 
     if (validationMessage) {
       return res.status(400).json({ message: validationMessage });
     }
 
-    const section = await HomeSection.findByIdAndUpdate(req.params.id, req.body, {
+    const section = await HomeSection.findByIdAndUpdate(req.params.id, payload, {
       new: true,
       runValidators: true
     });
@@ -134,7 +155,7 @@ export async function updateHomeSection(req, res, next) {
     }
 
     const populatedSection = await getSectionById(section._id);
-    res.json({ section: populatedSection });
+    res.json({ section: serializeHomeSection(populatedSection) });
   } catch (error) {
     next(error);
   }
@@ -169,7 +190,7 @@ export async function reorderHomeSections(req, res, next) {
     );
 
     const sections = await buildSectionQuery(false);
-    res.json({ sections });
+    res.json({ sections: sections.map((section) => serializeHomeSection(section)) });
   } catch (error) {
     next(error);
   }

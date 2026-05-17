@@ -12,6 +12,12 @@ const bannerSchema = new mongoose.Schema(
       required: true,
       trim: true
     },
+    bannerType: {
+      type: String,
+      enum: ['hero', 'promo', 'story'],
+      default: 'hero',
+      trim: true
+    },
     mobileImageUrl: {
       type: String,
       trim: true,

@@ -27,14 +27,8 @@ function ProductsPage() {
   const selectedSort = searchParams.get('sort') || 'newest';
   const query = searchParams.get('q') || '';
   const selectedPriceRange = searchParams.get('priceRange') || '';
-  const selectedMaterials = useMemo(
-    () =>
-      (searchParams.get('material') || '')
-        .split(',')
-        .map((item) => item.trim())
-        .filter(Boolean),
-    [searchParams]
-  );
+  const selectedGender = searchParams.get('gender') || '';
+  const selectedMaterialGroup = searchParams.get('materialGroup') || '';
 
   const activePriceRange = useMemo(
     () => priceRangeOptions.find((option) => option.id === selectedPriceRange) || null,
@@ -85,9 +79,10 @@ function ProductsPage() {
           sort: selectedSort,
           q: query || undefined,
           category: selectedCategory || undefined,
+          gender: selectedGender || undefined,
+          materialGroup: selectedMaterialGroup || undefined,
           minPrice: minPrice || undefined,
-          maxPrice: maxPrice || undefined,
-          material: selectedMaterials.length > 0 ? selectedMaterials.join(',') : undefined
+          maxPrice: maxPrice || undefined
         });
 
         if (!isMounted) {
@@ -116,7 +111,7 @@ function ProductsPage() {
     return () => {
       isMounted = false;
     };
-  }, [currentPage, maxPrice, minPrice, query, selectedCategory, selectedMaterials, selectedSort]);
+  }, [currentPage, maxPrice, minPrice, query, selectedCategory, selectedGender, selectedMaterialGroup, selectedSort]);
 
   useEffect(() => {
     if (!feedbackMessage) {
@@ -170,6 +165,20 @@ function ProductsPage() {
     });
   }
 
+  function handleSelectCategory(categorySlug) {
+    updateParamsWithOptions({
+      category: categorySlug || null,
+      page: 1
+    }, { replace: true, state: { preserveScroll: true } });
+  }
+
+  function handleSelectGender(gender) {
+    updateParamsWithOptions({
+      gender: gender || null,
+      page: 1
+    }, { replace: true, state: { preserveScroll: true } });
+  }
+
   function handleSelectPriceRange(rangeId) {
     updateParamsWithOptions({
       priceRange: rangeId || null,
@@ -177,13 +186,9 @@ function ProductsPage() {
     }, { replace: true, state: { preserveScroll: true } });
   }
 
-  function handleToggleMaterial(material) {
-    const nextMaterials = selectedMaterials.includes(material)
-      ? selectedMaterials.filter((item) => item !== material)
-      : [...selectedMaterials, material];
-
+  function handleSelectMaterialGroup(materialGroup) {
     updateParamsWithOptions({
-      material: nextMaterials.length > 0 ? nextMaterials.join(',') : null,
+      materialGroup: materialGroup || null,
       page: 1
     }, { replace: true, state: { preserveScroll: true } });
   }
@@ -244,9 +249,14 @@ function ProductsPage() {
         <aside className="hidden xl:block">
           <div className="surface-card sticky top-24 p-6">
             <ProductFilterSidebar
-              selectedMaterials={selectedMaterials}
+              categories={categories}
+              selectedCategory={selectedCategory}
+              selectedGender={selectedGender}
+              selectedMaterialGroup={selectedMaterialGroup}
               selectedPriceRange={selectedPriceRange}
-              onToggleMaterial={handleToggleMaterial}
+              onSelectCategory={handleSelectCategory}
+              onSelectGender={handleSelectGender}
+              onSelectMaterialGroup={handleSelectMaterialGroup}
               onSelectPriceRange={handleSelectPriceRange}
               onResetFilters={handleResetFilters}
             />
@@ -270,9 +280,14 @@ function ProductsPage() {
                   </button>
                 </div>
                 <ProductFilterSidebar
-                  selectedMaterials={selectedMaterials}
+                  categories={categories}
+                  selectedCategory={selectedCategory}
+                  selectedGender={selectedGender}
+                  selectedMaterialGroup={selectedMaterialGroup}
                   selectedPriceRange={selectedPriceRange}
-                  onToggleMaterial={handleToggleMaterial}
+                  onSelectCategory={handleSelectCategory}
+                  onSelectGender={handleSelectGender}
+                  onSelectMaterialGroup={handleSelectMaterialGroup}
                   onSelectPriceRange={handleSelectPriceRange}
                   onResetFilters={handleResetFilters}
                 />

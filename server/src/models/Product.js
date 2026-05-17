@@ -1,5 +1,34 @@
 import mongoose from 'mongoose';
 
+function normalizeGender(value) {
+  const normalizedValue = String(value || '').trim().toLowerCase();
+  const genderMap = {
+    nam: 'male',
+    male: 'male',
+    nu: 'female',
+    'nữ': 'female',
+    female: 'female',
+    unisex: 'unisex'
+  };
+
+  return genderMap[normalizedValue] || 'female';
+}
+
+function normalizeMaterialGroup(value, detail = '') {
+  const normalizedValue = String(value || '').trim().toLowerCase();
+  const normalizedDetail = String(detail || '').trim().toLowerCase();
+  const source = normalizedValue || normalizedDetail;
+
+  if (['gold', 'silver', 'platinum', 'other'].includes(normalizedValue)) {
+    return normalizedValue;
+  }
+
+  if (source.includes('vang') || source.includes('vàng')) return 'gold';
+  if (source.includes('bac') || source.includes('bạc')) return 'silver';
+  if (source.includes('platinum') || source.includes('bach kim') || source.includes('bạch kim')) return 'platinum';
+  return 'other';
+}
+
 const productSchema = new mongoose.Schema(
   {
     name: {
@@ -60,6 +89,17 @@ const productSchema = new mongoose.Schema(
       trim: true,
       default: ''
     },
+    materialGroup: {
+      type: String,
+      enum: ['gold', 'silver', 'platinum', 'other'],
+      default: 'gold',
+      set: (value) => normalizeMaterialGroup(value)
+    },
+    materialDetail: {
+      type: String,
+      trim: true,
+      default: ''
+    },
     stone: {
       type: String,
       trim: true,
@@ -76,8 +116,9 @@ const productSchema = new mongoose.Schema(
     },
     gender: {
       type: String,
-      enum: ['Nam', 'Nu', 'Unisex'],
-      default: 'Unisex'
+      enum: ['male', 'female', 'unisex'],
+      default: 'female',
+      set: normalizeGender
     },
     stock: {
       type: Number,
@@ -123,6 +164,19 @@ const productSchema = new mongoose.Schema(
     suppressReservedKeysWarning: true
   }
 );
+
+productSchema.pre('validate', function normalizeLegacyProductFields(next) {
+  if (!this.materialDetail && this.material) {
+    this.materialDetail = this.material;
+  }
+
+  if (!this.materialGroup || this.isModified('material') || this.isModified('materialDetail') || this.isModified('materialGroup')) {
+    const explicitGroup = this.isModified('materialGroup') ? this.materialGroup : '';
+    this.materialGroup = normalizeMaterialGroup(explicitGroup, this.materialDetail || this.material);
+  }
+
+  next();
+});
 
 const Product = mongoose.model('Product', productSchema);
 

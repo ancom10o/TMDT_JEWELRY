@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { HOME_SECTION_TYPES } from '../utils/homeSections.js';
 
 const homeSectionItemSchema = new mongoose.Schema(
   {
@@ -27,6 +28,16 @@ const homeSectionItemSchema = new mongoose.Schema(
       trim: true,
       default: ''
     },
+    icon: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    color: {
+      type: String,
+      trim: true,
+      default: ''
+    },
     badge: {
       type: String,
       trim: true,
@@ -50,7 +61,7 @@ const homeSectionSchema = new mongoose.Schema(
     type: {
       type: String,
       required: true,
-      enum: ['banner_slider', 'category_grid', 'product_carousel', 'editorial_grid', 'service_grid']
+      enum: [...HOME_SECTION_TYPES, 'banner_slider', 'banner-slider', 'category-grid', 'product_carousel', 'editorial_grid']
     },
     title: {
       type: String,
@@ -58,6 +69,11 @@ const homeSectionSchema = new mongoose.Schema(
       default: ''
     },
     subtitle: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    description: {
       type: String,
       trim: true,
       default: ''
@@ -80,6 +96,22 @@ const homeSectionSchema = new mongoose.Schema(
       type: Number,
       default: 0
     },
+    settings: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
+    },
+    products: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Product'
+      }
+    ],
+    banners: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Banner'
+      }
+    ],
     displayMode: {
       type: String,
       trim: true,

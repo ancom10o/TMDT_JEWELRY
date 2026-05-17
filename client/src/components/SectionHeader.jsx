@@ -4,8 +4,8 @@ import { Link } from 'react-router-dom';
 function SectionHeader({ eyebrow, title, description, actionLabel, actionTo, align = 'between' }) {
   const wrapperClass =
     align === 'start'
-      ? 'flex flex-col gap-3'
-      : 'flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between';
+      ? 'flex flex-col gap-2.5'
+      : 'flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4';
 
   return (
     <div className={wrapperClass}>
@@ -16,9 +16,9 @@ function SectionHeader({ eyebrow, title, description, actionLabel, actionTo, ali
       </div>
 
       {actionLabel && actionTo ? (
-        <Link to={actionTo} className="inline-flex items-center gap-2 text-sm font-semibold text-navy transition hover:text-gold">
+        <Link to={actionTo} className="inline-flex items-center gap-2 text-sm font-semibold text-navy transition hover:text-gold sm:pb-1">
           {actionLabel}
-          <span aria-hidden="true">→</span>
+          <span aria-hidden="true">&rarr;</span>
         </Link>
       ) : null}
     </div>

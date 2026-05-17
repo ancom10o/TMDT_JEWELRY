@@ -134,6 +134,7 @@ export const coupons = [
 export const homepageBanners = [
   {
     name: 'Banner dau trang 01',
+    bannerType: 'hero',
     imageUrl: '/images/banners/home-banner-1.jpg',
     mobileImageUrl: '/images/banners/home-banner-1.jpg',
     title: 'Tuyen chon trang suc danh cho khoanh khac toa sang',
@@ -144,6 +145,7 @@ export const homepageBanners = [
   },
   {
     name: 'Banner dau trang 02',
+    bannerType: 'hero',
     imageUrl: '/images/banners/home-banner-2.jpg',
     mobileImageUrl: '/images/banners/home-banner-2.jpg',
     title: 'Diem nhan moi cho mua qua tang',
@@ -154,6 +156,7 @@ export const homepageBanners = [
   },
   {
     name: 'Banner dau trang 03',
+    bannerType: 'hero',
     imageUrl: '/images/banners/home-banner-3.jpg',
     mobileImageUrl: '/images/banners/home-banner-3.jpg',
     title: 'Bo suu tap moi len ke',
@@ -166,15 +169,17 @@ export const homepageBanners = [
 
 export const homepageSections = [
   {
-    key: 'top-banner',
-    type: 'banner_slider',
-    title: 'Banner chien dich',
-    subtitle: 'Khu vuc banner lon cho homepage.',
-    buttonLabel: '',
-    buttonLink: '',
+    key: 'hero-banner',
+    type: 'hero_banner',
+    title: 'Hero banner trang chu',
+    subtitle: 'Slider banner lon cho homepage.',
+    buttonLabel: 'Kham pha ngay',
+    buttonLink: '/products',
     isActive: true,
     order: 1,
-    displayMode: 'hero'
+    settings: {
+      autoplay: true
+    }
   },
   {
     key: 'featured-categories',
@@ -185,81 +190,110 @@ export const homepageSections = [
     buttonLink: '/products',
     isActive: true,
     order: 2,
+    settings: {
+      columns: 4,
+      showButton: true
+    },
     items: [
       {
         title: 'Nhan',
-        subtitle: 'Thiet ke thanh lich cho phong cach hang ngay va nhung dip dac biet.',
-        image: 'from-[#fdf4d7] via-[#fffdf8] to-[#efe3ba]',
-        link: '/products?category=nhan'
+        description: 'Thiet ke thanh lich cho phong cach hang ngay va nhung dip dac biet.',
+        image: '/images/categories/nhan.jpg',
+        link: '/products?category=nhan',
+        color: 'linear-gradient(135deg, #fdf4d7 0%, #fffdf8 50%, #efe3ba 100%)'
       },
       {
         title: 'Bong tai',
-        subtitle: 'Diem nhan gon gang, sang trong cho dien mao hien dai.',
-        image: 'from-[#edf3fb] via-white to-[#dbe7f7]',
-        link: '/products?category=bong-tai'
+        description: 'Diem nhan gon gang, sang trong cho dien mao hien dai.',
+        image: '/images/categories/bong-tai.jpg',
+        link: '/products?category=bong-tai',
+        color: 'linear-gradient(135deg, #edf3fb 0%, #ffffff 50%, #dbe7f7 100%)'
       },
       {
         title: 'Day chuyen',
-        subtitle: 'Duong net mem mai, tinh te va de phoi trong nhieu hoan canh.',
-        image: 'from-[#f7f0f5] via-white to-[#eadce7]',
-        link: '/products?category=day-chuyen'
+        description: 'Duong net mem mai, tinh te va de phoi trong nhieu hoan canh.',
+        image: '/images/categories/day-chuyen.jpg',
+        link: '/products?category=day-chuyen',
+        color: 'linear-gradient(135deg, #f7f0f5 0%, #ffffff 50%, #eadce7 100%)'
       },
       {
         title: 'Lac tay',
-        subtitle: 'Cam giac nhe, nu tinh va cao cap cho co tay noi bat vua du.',
-        image: 'from-[#eff8f2] via-white to-[#dceddf]',
-        link: '/products?category=lac-tay'
+        description: 'Cam giac nhe, nu tinh va cao cap cho co tay noi bat vua du.',
+        image: '/images/categories/lac-tay.jpg',
+        link: '/products?category=lac-tay',
+        color: 'linear-gradient(135deg, #eff8f2 0%, #ffffff 50%, #dceddf 100%)'
       }
     ]
   },
   {
-    key: 'featured-products',
-    type: 'product_carousel',
+    key: 'favorite-products',
+    type: 'product_slider',
     title: 'Lua chon duoc yeu thich',
     subtitle: 'Nhung thiet ke dang duoc quan tam nhieu nhat, cap nhat truc tiep tu du lieu san pham.',
     buttonLabel: 'Xem bo suu tap',
     buttonLink: '/products?featured=true',
     isActive: true,
     order: 3,
-    displayMode: 'listing'
+    settings: {
+      limit: 8,
+      variant: 'listing',
+      sourceMode: 'manual',
+      productQuery: '/products',
+      autoplay: true
+    }
   },
   {
-    key: 'editorial-grid',
-    type: 'editorial_grid',
-    title: 'Ve dep thanh lich cho moi khoanh khac',
-    subtitle: 'Kham pha nhung thiet ke duoc chon loc cho ngay thuong, dip ky niem va nhung mon qua can su tinh te.',
-    buttonLabel: 'Mua sam ngay',
-    buttonLink: '/products',
+    key: 'elegant-collection',
+    type: 'collection_cards',
+    title: 'Bo suu tap thanh lich',
+    subtitle: 'Nhung the bo suu tap duoc sap dat theo tinh than toi gian, hien dai va sang trong.',
+    buttonLabel: 'Kham pha them',
+    buttonLink: '/products?featured=true',
     isActive: true,
     order: 4,
+    settings: {
+      columns: 3,
+      showButton: true
+    },
     items: [
       {
         title: 'Bridal Atelier',
-        subtitle: 'Nhung thiet ke cuoi anh kim theo tinh than thanh lich, toi gian va vuot thoi gian.',
-        badge: 'Danh cho ngay trong dai'
+        subtitle: 'Danh cho ngay trong dai',
+        description: 'Nhung thiet ke cuoi anh kim theo tinh than thanh lich, toi gian va vuot thoi gian.',
+        image: '/images/banners/home-banner-1.jpg',
+        link: '/products?category=trang-suc-cuoi'
       },
       {
         title: 'Daily Signature',
-        subtitle: 'Trang suc danh cho nhip song hien dai, can bang giua tinh te va kha nang ung dung.',
-        badge: 'Phong cach thuong nhat'
+        subtitle: 'Phong cach thuong nhat',
+        description: 'Trang suc danh cho nhip song hien dai, can bang giua tinh te va kha nang ung dung.',
+        image: '/images/banners/home-banner-2.jpg',
+        link: '/products?sort=newest'
       },
       {
         title: 'Gift Selection',
-        subtitle: 'Tuyen chon qua tang sang trong voi ngon ngu thiet ke gon gang, de ghi dau an.',
-        badge: 'Cho khoanh khac dang nho'
+        subtitle: 'Cho khoanh khac dang nho',
+        description: 'Tuyen chon qua tang sang trong voi ngon ngu thiet ke gon gang, de ghi dau an.',
+        image: '/images/banners/home-banner-3.jpg',
+        link: '/products'
       }
     ]
   },
   {
     key: 'new-arrivals',
-    type: 'product_carousel',
+    type: 'product_slider',
     title: 'Moi len ke',
     subtitle: 'Nhung thiet ke vua cap nhat, phu hop cho khach hang muon kham pha nhanh cac mau moi nhat.',
     buttonLabel: 'Xem san pham moi',
     buttonLink: '/products?sort=newest',
     isActive: true,
     order: 5,
-    displayMode: 'compact'
+    settings: {
+      limit: 8,
+      variant: 'compact',
+      sourceMode: 'manual',
+      productQuery: '/products?sort=newest'
+    }
   },
   {
     key: 'service-grid',
@@ -270,22 +304,29 @@ export const homepageSections = [
     buttonLink: '',
     isActive: true,
     order: 6,
+    settings: {
+      columns: 4
+    },
     items: [
       {
-        title: 'Kiem dinh minh bach',
-        subtitle: 'Thong tin chat lieu, trong luong va chi tiet san pham duoc trinh bay ro rang.'
+        icon: 'BH',
+        title: 'Bao hanh',
+        description: 'Thong tin chat lieu, trong luong va chi tiet san pham duoc trinh bay ro rang.'
       },
       {
-        title: 'Doi size linh hoat',
-        subtitle: 'Ho tro doi size trong thoi gian phu hop voi chinh sach cua JewelAura.'
+        icon: 'GH',
+        title: 'Giao hang',
+        description: 'Giao hang toan quoc, theo doi don hang ro rang va thong bao lien tuc.'
       },
       {
-        title: 'Dong goi sang trong',
-        subtitle: 'Bao bi cao cap, chi chu de san sang cho ca tu thuong va qua tang.'
+        icon: 'DS',
+        title: 'Doi size',
+        description: 'Ho tro doi size trong thoi gian phu hop voi chinh sach cua JewelAura.'
       },
       {
-        title: 'Tu van ca nhan hoa',
-        subtitle: 'De xuat san pham theo ngan sach, phong cach va dip su dung cu the.'
+        icon: 'TV',
+        title: 'Tu van',
+        description: 'De xuat san pham theo ngan sach, phong cach va dip su dung cu the.'
       }
     ]
   }
@@ -357,7 +398,7 @@ const rawProducts = [
     oldPrice: 13800000,
     discount: 6,
     images: ['/images/products/ring-eternal-1.jpg', '/images/products/ring-eternal-2.jpg'],
-    material: 'Vang 18K',
+    material: 'Platinum 950',
     stone: 'Kim cuong tam',
     weight: 5.8,
     size: ['14', '15', '16', '17', '18'],
@@ -471,7 +512,7 @@ const rawProducts = [
     oldPrice: 16800000,
     discount: 6,
     images: ['/images/products/necklace-grace-1.jpg', '/images/products/necklace-grace-2.jpg'],
-    material: 'Vang trang 18K',
+    material: 'Platinum 900',
     stone: 'Kim cuong tam',
     weight: 4.2,
     size: ['42cm', '45cm'],
@@ -978,6 +1019,47 @@ const rawProducts = [
   }
 ];
 
+function normalizeSeedGender(product) {
+  if (product.categorySlug === 'trang-suc-cuoi') {
+    return 'unisex';
+  }
+
+  const genderMap = {
+    Nam: 'male',
+    Nu: 'female',
+    'Nữ': 'female',
+    Unisex: 'unisex'
+  };
+
+  return genderMap[product.gender] || 'female';
+}
+
+function inferMaterialGroup(material = '') {
+  const normalizedMaterial = material.toLowerCase();
+
+  if (normalizedMaterial.includes('vang') || normalizedMaterial.includes('vàng')) return 'gold';
+  if (normalizedMaterial.includes('bac') || normalizedMaterial.includes('bạc')) return 'silver';
+  if (normalizedMaterial.includes('platinum') || normalizedMaterial.includes('bach kim') || normalizedMaterial.includes('bạch kim')) return 'platinum';
+  return 'other';
+}
+
+function normalizeMaterialDetail(material = '') {
+  const normalizedMaterial = material.toLowerCase();
+
+  if (normalizedMaterial.includes('platinum 950')) return 'Platinum 950';
+  if (normalizedMaterial.includes('platinum 900')) return 'Platinum 900';
+  if (normalizedMaterial.includes('vang trang')) return 'Vàng trắng';
+  if (normalizedMaterial.includes('vang hong')) return 'Vàng hồng';
+  if (normalizedMaterial.includes('vang 10k')) return 'Vàng 10K';
+  if (normalizedMaterial.includes('vang 14k')) return 'Vàng 14K';
+  if (normalizedMaterial.includes('vang 18k')) return 'Vàng 18K';
+  if (normalizedMaterial.includes('bac 925')) return 'Bạc 925';
+  if (normalizedMaterial.includes('bac y')) return 'Bạc Ý';
+  if (normalizedMaterial.includes('bac xi')) return 'Bạc xi';
+  if (normalizedMaterial.includes('thep khong gi')) return 'Thép không gỉ';
+  return material;
+}
+
 export function buildProducts(categoryMap) {
   return rawProducts.map((product, index) => ({
     name: product.name,
@@ -990,10 +1072,12 @@ export function buildProducts(categoryMap) {
     discount: product.discount,
     images: product.images,
     material: product.material,
+    materialGroup: product.materialGroup || inferMaterialGroup(product.material),
+    materialDetail: product.materialDetail || normalizeMaterialDetail(product.material),
     stone: product.stone,
     weight: product.weight,
     size: product.size,
-    gender: product.gender,
+    gender: normalizeSeedGender(product),
     stock: product.stock,
     sold: product.sold,
     isFeatured: product.isFeatured,

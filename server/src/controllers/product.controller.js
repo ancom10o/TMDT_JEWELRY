@@ -7,6 +7,46 @@ function parsePositiveNumber(value, fallback) {
   return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : fallback;
 }
 
+function normalizeGenderFilter(value) {
+  const normalizedValue = String(value || '').trim().toLowerCase();
+  const genderMap = {
+    nam: 'male',
+    male: 'male',
+    nu: 'female',
+    'nữ': 'female',
+    female: 'female',
+    unisex: 'unisex'
+  };
+
+  return genderMap[normalizedValue] || '';
+}
+
+function buildGenderCompatibilityFilter(gender) {
+  const legacyGenderMap = {
+    male: ['Nam'],
+    female: ['Nu', 'Nữ'],
+    unisex: ['Unisex']
+  };
+
+  return [gender, ...(legacyGenderMap[gender] || [])];
+}
+
+function normalizeMaterialGroupFilter(value) {
+  const normalizedValue = String(value || '').trim().toLowerCase();
+  return ['gold', 'silver', 'platinum', 'other'].includes(normalizedValue) ? normalizedValue : '';
+}
+
+function buildLegacyMaterialRegexes(materialGroup) {
+  const legacyMap = {
+    gold: ['vang', 'vàng'],
+    silver: ['bac', 'bạc'],
+    platinum: ['platinum', 'bach kim', 'bạch kim'],
+    other: ['titanium', 'thep', 'thép', 'ngoc trai', 'ngọc trai']
+  };
+
+  return (legacyMap[materialGroup] || []).map((item) => new RegExp(item, 'i'));
+}
+
 async function resolveCategoryFilter(categoryValue) {
   if (!categoryValue) {
     return { hasCategoryFilter: false, categoryId: null, hasMatch: true };
@@ -29,9 +69,11 @@ export async function getProducts(req, res, next) {
     const {
       category,
       material,
+      materialGroup,
       status,
       featured,
       gender,
+      stockStatus,
       name,
       keyword,
       q,
@@ -60,6 +102,9 @@ export async function getProducts(req, res, next) {
         filters: {
           category: category || '',
           keyword: searchKeyword,
+          gender: normalizeGenderFilter(gender),
+          materialGroup: normalizeMaterialGroupFilter(materialGroup),
+          stockStatus: stockStatus || '',
           minPrice: minPrice ? Number(minPrice) : null,
           maxPrice: maxPrice ? Number(maxPrice) : null,
           sort
@@ -75,12 +120,25 @@ export async function getProducts(req, res, next) {
       filter.status = status;
     }
 
+    if (stockStatus === 'in_stock') {
+      filter.stock = { $gt: 0 };
+    }
+
+    if (stockStatus === 'out_stock') {
+      filter.stock = { $lte: 0 };
+    }
+
+    if (stockStatus === 'low_stock') {
+      filter.stock = { $gt: 0, $lte: 10 };
+    }
+
     if (featured === 'true') {
       filter.isFeatured = true;
     }
 
-    if (gender) {
-      filter.gender = gender;
+    const normalizedGender = normalizeGenderFilter(gender);
+    if (normalizedGender) {
+      filter.gender = { $in: buildGenderCompatibilityFilter(normalizedGender) };
     }
 
     if (searchKeyword) {
@@ -94,10 +152,45 @@ export async function getProducts(req, res, next) {
         .filter(Boolean);
 
       if (materialFilters.length > 0) {
-        filter.material = {
-          $in: materialFilters.map((item) => new RegExp(item, 'i'))
-        };
+        const materialRegexes = materialFilters.map((item) => new RegExp(item, 'i'));
+        filter.$and = [
+          ...(filter.$and || []),
+          {
+            $or: [
+              { material: { $in: materialRegexes } },
+              { materialDetail: { $in: materialRegexes } }
+            ]
+          }
+        ];
       }
+    }
+
+    const normalizedMaterialGroup = normalizeMaterialGroupFilter(materialGroup);
+    if (normalizedMaterialGroup) {
+      const legacyRegexes = buildLegacyMaterialRegexes(normalizedMaterialGroup);
+      const materialGroupFilter = [{ materialGroup: normalizedMaterialGroup }];
+
+      if (legacyRegexes.length > 0) {
+        materialGroupFilter.push({
+          $and: [
+            {
+              $or: [
+                { materialGroup: { $exists: false } },
+                { materialGroup: '' },
+                { materialGroup: null }
+              ]
+            },
+            {
+              $or: [
+                { material: { $in: legacyRegexes } },
+                { materialDetail: { $in: legacyRegexes } }
+              ]
+            }
+          ]
+        });
+      }
+
+      filter.$or = materialGroupFilter;
     }
 
     if (minPrice || maxPrice) {
@@ -138,6 +231,9 @@ export async function getProducts(req, res, next) {
       filters: {
         category: category || '',
         keyword: searchKeyword,
+        gender: normalizedGender,
+        materialGroup: normalizedMaterialGroup,
+        stockStatus: stockStatus || '',
         minPrice: minPrice ? Number(minPrice) : null,
         maxPrice: maxPrice ? Number(maxPrice) : null,
         sort

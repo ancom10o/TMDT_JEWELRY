@@ -13,7 +13,6 @@ const initialFormState = {
   name: '',
   slug: '',
   description: '',
-  parent: '',
   status: 'active'
 };
 
@@ -32,7 +31,6 @@ function buildFormState(category) {
     name: category.name || '',
     slug: category.slug || '',
     description: category.description || '',
-    parent: category.parent?._id || '',
     status: category.status || 'active'
   };
 }
@@ -118,7 +116,7 @@ function AdminCategoriesPage() {
         name: formState.name.trim(),
         slug: normalizeSlug(formState.slug || formState.name),
         description: formState.description.trim(),
-        parent: formState.parent || null,
+        parent: null,
         status: formState.status
       };
 
@@ -197,7 +195,6 @@ function AdminCategoriesPage() {
         <DataTable
           columns={[
             { key: 'name', label: 'Danh mục' },
-            { key: 'parent', label: 'Danh mục cha' },
             { key: 'products', label: 'Số sản phẩm' },
             { key: 'status', label: 'Trạng thái' },
             { key: 'actions', label: 'Hành động', align: 'right' }
@@ -209,7 +206,6 @@ function AdminCategoriesPage() {
                 <p className="font-semibold text-navy">{category.name}</p>
                 <p className="mt-1 text-slate-500">{category.slug}</p>
               </td>
-              <td className="px-5 py-4 text-slate-600">{category.parent?.name || '--'}</td>
               <td className="px-5 py-4 text-slate-600">{category.productCount ?? 0}</td>
               <td className="px-5 py-4">
                 <StatusBadge label={category.status === 'active' ? 'Hoạt động' : 'Tạm ẩn'} tone={category.status === 'active' ? 'success' : 'neutral'} />
@@ -249,19 +245,6 @@ function AdminCategoriesPage() {
             <label className="md:col-span-2">
               <span className="field-label">Mô tả</span>
               <textarea name="description" value={formState.description} onChange={handleChange} rows="4" className="textarea-field" />
-            </label>
-            <label>
-              <span className="field-label">Danh mục cha</span>
-              <select name="parent" value={formState.parent} onChange={handleChange} className="select-field">
-                <option value="">Không có</option>
-                {categories
-                  .filter((item) => item._id !== editingCategory?._id)
-                  .map((category) => (
-                    <option key={category._id} value={category._id}>
-                      {category.name}
-                    </option>
-                  ))}
-              </select>
             </label>
             <label>
               <span className="field-label">Trạng thái</span>

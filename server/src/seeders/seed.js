@@ -64,9 +64,16 @@ async function importData() {
   await HomeSection.insertMany(
     homepageSections.map((section) => ({
       ...section,
-      bannerIds: section.key === 'top-banner' ? bannerIds : [],
+      banners: section.key === 'hero-banner' ? bannerIds : [],
+      bannerIds: section.key === 'hero-banner' ? bannerIds : [],
+      products:
+        section.key === 'favorite-products'
+          ? featuredProducts.map((product) => product._id)
+          : section.key === 'new-arrivals'
+            ? latestProducts.map((product) => product._id)
+            : [],
       productIds:
-        section.key === 'featured-products'
+        section.key === 'favorite-products'
           ? featuredProducts.map((product) => product._id)
           : section.key === 'new-arrivals'
             ? latestProducts.map((product) => product._id)

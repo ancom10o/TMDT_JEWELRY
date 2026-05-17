@@ -8,6 +8,7 @@ import { useAuth } from '../hooks/useAuth.js';
 import { useCart } from '../hooks/useCart.js';
 import { useWishlist } from '../hooks/useWishlist.js';
 import { formatNumber } from '../utils/format.js';
+import { getGenderLabel, getMaterialGroupLabel, getProductMaterialLabel } from '../utils/productFilters.js';
 import { getProductDetail, getProducts, getPublicAssetUrl } from '../services/api.js';
 
 const DETAIL_TABS = [
@@ -85,7 +86,7 @@ function ProductGallery({ product }) {
                     <img
                       src={thumbnailUrl}
                       alt={`${product.name} ${index + 1}`}
-                      className="h-full w-full object-cover"
+                      className="h-full w-full object-cover object-center"
                       onError={() => markImageFailed(index)}
                     />
                   ) : (
@@ -98,12 +99,12 @@ function ProductGallery({ product }) {
         </div>
 
         <div className="order-1 md:order-2">
-          <div className="group flex h-[420px] max-h-[560px] items-center justify-center overflow-hidden rounded-[24px] border border-white/70 bg-white/90 sm:h-[480px] lg:h-[520px]">
+          <div className="group aspect-square overflow-hidden rounded-[24px] border border-white/70 bg-white/90">
             {activeImageUrl && !failedImages[activeImage] ? (
               <img
                 src={activeImageUrl}
                 alt={product.name}
-                className="h-full w-full object-contain transition duration-500 ease-out group-hover:scale-[1.04]"
+                className="h-full w-full object-cover object-center transition duration-500 ease-out group-hover:scale-[1.04]"
                 onError={() => markImageFailed(activeImage)}
               />
             ) : (
@@ -377,13 +378,18 @@ function ProductDetailPage() {
 
   const discountPercent = product.discount > 0 ? `-${product.discount}%` : null;
   const availableSizes = Array.isArray(product.size) ? product.size.filter(Boolean) : [];
+  const genderLabel = getGenderLabel(product.gender);
+  const materialGroupLabel = getMaterialGroupLabel(product.materialGroup);
+  const materialDetailLabel = getProductMaterialLabel(product);
   const detailItems = [
-    product.material ? { label: 'Chất liệu', value: product.material } : null,
+    product.category?.name ? { label: 'Danh mục', value: product.category.name } : null,
+    genderLabel ? { label: 'Giới tính', value: genderLabel } : null,
+    materialGroupLabel ? { label: 'Nhóm chất liệu', value: materialGroupLabel } : null,
+    materialDetailLabel ? { label: 'Chi tiết chất liệu', value: materialDetailLabel } : null,
     product.stone ? { label: 'Đá / điểm nhấn', value: product.stone } : null,
     availableSizes.length > 0 ? { label: 'Kích thước', value: availableSizes.join(', ') } : null,
     Number(product.weight) > 0 ? { label: 'Trọng lượng', value: `${formatNumber(product.weight)} g` } : null,
     typeof product.stock === 'number' ? { label: 'Tồn kho', value: `${formatNumber(product.stock)} sản phẩm` } : null,
-    product.gender ? { label: 'Phong cách', value: product.gender } : null
   ].filter(Boolean);
 
   const stockStatus =
@@ -429,9 +435,14 @@ function ProductDetailPage() {
                   {product.category.name}
                 </span>
               ) : null}
-              {product.material ? (
+              {materialDetailLabel ? (
                 <span className="rounded-full border border-slate-200 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                  {product.material}
+                  {materialDetailLabel}
+                </span>
+              ) : null}
+              {genderLabel ? (
+                <span className="rounded-full border border-slate-200 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  {genderLabel}
                 </span>
               ) : null}
             </div>
