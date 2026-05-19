@@ -22,7 +22,7 @@ function ServiceGridSection({ section }) {
   return (
     <section className="container-page section-shell">
       <div className="rounded-[34px] border border-[#ebe4d8] bg-white p-6 shadow-[0_18px_60px_rgba(15,23,42,0.05)] sm:p-8">
-        <SectionHeader eyebrow="Dich vu" title={normalizedSection.title} description={normalizedSection.subtitle} align="start" />
+        <SectionHeader eyebrow="Dịch vụ" title={normalizedSection.title} description={normalizedSection.subtitle} align="start" />
         <div className={`mt-8 grid gap-5 sm:grid-cols-2 ${columnClassMap[columns]}`}>
           {items.map((item, index) => (
             <article key={`${item.title}-${index}`} className="rounded-[26px] bg-[#fcfaf5] p-5">

@@ -7,7 +7,8 @@ import SectionHeader from '../components/SectionHeader.jsx';
 import { useAuth } from '../hooks/useAuth.js';
 import { useCart } from '../hooks/useCart.js';
 import { useWishlist } from '../hooks/useWishlist.js';
-import { formatNumber } from '../utils/format.js';
+import { useToast } from '../context/ToastContext.jsx';
+import { formatCurrency, formatNumber } from '../utils/format.js';
 import { getGenderLabel, getMaterialGroupLabel, getProductMaterialLabel } from '../utils/productFilters.js';
 import { getProductDetail, getProducts, getPublicAssetUrl } from '../services/api.js';
 
@@ -66,8 +67,8 @@ function ProductGallery({ product }) {
 
   return (
     <div className="rounded-[28px] border border-[#e4ebf3] bg-[linear-gradient(135deg,_#ffffff_0%,_#f3f7fb_100%)] p-4 shadow-[0_18px_50px_rgba(15,23,42,0.05)] sm:p-5">
-      <div className="grid gap-4 md:grid-cols-[80px_minmax(0,1fr)] md:items-start">
-        <div className="premium-scrollbar order-2 grid grid-flow-col auto-cols-[72px] gap-3 overflow-x-auto pb-1 md:order-1 md:max-h-[560px] md:grid-flow-row md:auto-cols-auto md:overflow-x-visible md:overflow-y-auto md:pb-0">
+      <div className="grid gap-4 md:grid-cols-[86px_minmax(0,1fr)] md:items-start">
+        <div className="premium-scrollbar order-2 grid grid-flow-col auto-cols-[76px] gap-3 overflow-x-auto pb-1 md:order-1 md:max-h-[620px] md:grid-flow-row md:auto-cols-auto md:overflow-x-visible md:overflow-y-auto md:pb-0">
           {images.map((image, index) => {
             const thumbnailUrl = getPublicAssetUrl(image);
             const isActive = index === activeImage;
@@ -81,12 +82,12 @@ function ProductGallery({ product }) {
                   isActive ? 'border-gold bg-[#fff8eb] shadow-[0_10px_22px_rgba(212,175,55,0.14)]' : 'border-[#e6dfd2] bg-white hover:border-gold/60'
                 }`}
               >
-                <div className="h-[72px] w-[72px] overflow-hidden rounded-[14px] bg-white md:h-[78px] md:w-[78px]">
+                <div className="flex h-[76px] w-[76px] items-center justify-center overflow-hidden rounded-[14px] bg-white md:h-[80px] md:w-[80px]">
                   {thumbnailUrl && !failedImages[index] ? (
                     <img
                       src={thumbnailUrl}
                       alt={`${product.name} ${index + 1}`}
-                      className="h-full w-full object-cover object-center"
+                      className="h-full w-full object-contain object-center"
                       onError={() => markImageFailed(index)}
                     />
                   ) : (
@@ -99,12 +100,12 @@ function ProductGallery({ product }) {
         </div>
 
         <div className="order-1 md:order-2">
-          <div className="group aspect-square overflow-hidden rounded-[24px] border border-white/70 bg-white/90">
+          <div className="group flex aspect-square min-h-[320px] max-h-[620px] items-center justify-center overflow-hidden rounded-[24px] border border-white/70 bg-white/90 sm:min-h-[420px] lg:min-h-[520px]">
             {activeImageUrl && !failedImages[activeImage] ? (
               <img
                 src={activeImageUrl}
                 alt={product.name}
-                className="h-full w-full object-cover object-center transition duration-500 ease-out group-hover:scale-[1.04]"
+                className="h-full w-full object-contain object-center p-4 transition duration-500 ease-out group-hover:scale-[1.025] sm:p-6"
                 onError={() => markImageFailed(activeImage)}
               />
             ) : (
@@ -211,6 +212,7 @@ function ProductDetailPage() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { addToCart, isSyncing } = useCart();
+  const { showToast } = useToast();
   const { isFavorite, toggleWishlist } = useWishlist();
   const [product, setProduct] = useState(null);
   const [relatedProducts, setRelatedProducts] = useState([]);
@@ -327,8 +329,18 @@ function ProductDetailPage() {
         quantity
       );
       setPurchaseMessage(`Đã thêm ${quantity} sản phẩm vào giỏ hàng.`);
+      showToast({
+        title: 'Đã thêm vào giỏ hàng',
+        description: product.name,
+        type: 'success'
+      });
       return true;
-    } catch {
+    } catch (error) {
+      showToast({
+        title: 'Không thể thêm vào giỏ hàng',
+        description: error.response?.data?.message || 'Vui lòng thử lại sau.',
+        type: 'error'
+      });
       setPurchaseMessage('Không thể thêm sản phẩm vào giỏ hàng lúc này.');
       return false;
     }
@@ -376,12 +388,15 @@ function ProductDetailPage() {
     );
   }
 
-  const discountPercent = product.discount > 0 ? `-${product.discount}%` : null;
+  const comparePrice = product.originalPrice || product.oldPrice || 0;
+  const discountValue = product.discountPercent || (comparePrice > product.price ? Math.round(((comparePrice - product.price) / comparePrice) * 100) : 0);
+  const discountPercent = discountValue > 0 ? `-${discountValue}%` : null;
   const availableSizes = Array.isArray(product.size) ? product.size.filter(Boolean) : [];
   const genderLabel = getGenderLabel(product.gender);
   const materialGroupLabel = getMaterialGroupLabel(product.materialGroup);
   const materialDetailLabel = getProductMaterialLabel(product);
   const detailItems = [
+    product.sku ? { label: 'SKU', value: product.sku } : null,
     product.category?.name ? { label: 'Danh mục', value: product.category.name } : null,
     genderLabel ? { label: 'Giới tính', value: genderLabel } : null,
     materialGroupLabel ? { label: 'Nhóm chất liệu', value: materialGroupLabel } : null,
@@ -447,12 +462,12 @@ function ProductDetailPage() {
               ) : null}
             </div>
 
-            <h1 className="mt-4 font-display text-[2rem] leading-[0.98] text-navy sm:text-[2.35rem] lg:text-[2.6rem]">
+            <h1 className="mt-4 font-sans text-[1.65rem] font-semibold leading-tight tracking-normal text-navy sm:text-[1.95rem] lg:text-[2.15rem]">
               {product.name}
             </h1>
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
-              <PriceDisplay price={product.price} oldPrice={product.oldPrice} size="md" />
+              <PriceDisplay price={product.price} originalPrice={comparePrice} oldPrice={product.oldPrice} size="md" />
               {discountPercent ? (
                 <span className="rounded-full border border-[#ead8aa] bg-[#fff8eb] px-3 py-1 text-xs font-semibold text-navy">
                   {discountPercent}
@@ -461,6 +476,16 @@ function ProductDetailPage() {
             </div>
 
             <div className="mt-5 rounded-[24px] border border-[#e3eaf2] bg-[linear-gradient(135deg,_#ffffff_0%,_#f5f8fc_100%)] p-4 sm:p-5">
+              <div className="mb-4 flex flex-wrap items-center gap-3 text-sm text-slate-600">
+                <span className="font-semibold text-navy">SKU:</span>
+                <span>{product.sku || '--'}</span>
+                {comparePrice > product.price ? (
+                  <>
+                    <span className="text-slate-300">|</span>
+                    <span>Giá gốc: {formatCurrency(comparePrice)}</span>
+                  </>
+                ) : null}
+              </div>
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <span className={`inline-flex rounded-full border px-3 py-1.5 text-sm font-semibold ${stockStatusClass}`}>

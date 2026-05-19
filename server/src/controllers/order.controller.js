@@ -64,8 +64,11 @@ function buildOrderItemsFromCart(cartItems, productMap) {
     return {
       product: product._id,
       name: product.name,
+      productName: product.name,
+      sku: product.sku,
       image: product.images?.[0] || '',
       quantity: item.quantity,
+      costPrice: product.costPrice || 0,
       price: product.price,
       selectedSize: item.selectedSize || ''
     };
@@ -79,8 +82,11 @@ function buildOrderItemsFromRequest(requestItems, productMap) {
     return {
       product: product._id,
       name: product.name,
+      productName: product.name,
+      sku: product.sku,
       image: product.images?.[0] || '',
       quantity: item.quantity,
+      costPrice: product.costPrice || 0,
       price: product.price,
       selectedSize: item.selectedSize || ''
     };
@@ -92,7 +98,7 @@ async function buildOrderDraft({ req, session, couponCode }) {
 
   if (isAuthenticated) {
     const cart = await Cart.findOne({ user: req.user._id })
-      .populate('items.product', 'name slug images price stock sold status')
+      .populate('items.product', 'name slug images price costPrice sku stock sold status')
       .session(session);
 
     if (!cart || cart.items.length === 0) {

@@ -7,12 +7,13 @@ import FilterBar from '../components/admin/FilterBar.jsx';
 import StatusBadge from '../components/admin/StatusBadge.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { useAuth } from '../hooks/useAuth.js';
-import { createCategory, deleteCategory, getCategories, updateCategory } from '../services/api.js';
+import { createCategory, deleteCategory, getCategories, getPublicAssetUrl, updateCategory } from '../services/api.js';
 
 const initialFormState = {
   name: '',
   slug: '',
   description: '',
+  image: '',
   status: 'active'
 };
 
@@ -31,6 +32,7 @@ function buildFormState(category) {
     name: category.name || '',
     slug: category.slug || '',
     description: category.description || '',
+    image: category.image || '',
     status: category.status || 'active'
   };
 }
@@ -116,6 +118,7 @@ function AdminCategoriesPage() {
         name: formState.name.trim(),
         slug: normalizeSlug(formState.slug || formState.name),
         description: formState.description.trim(),
+        image: formState.image.trim(),
         parent: null,
         status: formState.status
       };
@@ -194,6 +197,7 @@ function AdminCategoriesPage() {
       ) : (
         <DataTable
           columns={[
+            { key: 'banner', label: 'Banner' },
             { key: 'name', label: 'Danh mục' },
             { key: 'products', label: 'Số sản phẩm' },
             { key: 'status', label: 'Trạng thái' },
@@ -202,6 +206,13 @@ function AdminCategoriesPage() {
         >
           {filteredCategories.map((category) => (
             <tr key={category._id} className="border-t border-slate-100">
+              <td className="px-5 py-4">
+                <div className="h-14 w-24 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                  {category.image ? (
+                    <img src={getPublicAssetUrl(category.image)} alt={category.name} className="h-full w-full object-cover" />
+                  ) : null}
+                </div>
+              </td>
               <td className="px-5 py-4">
                 <p className="font-semibold text-navy">{category.name}</p>
                 <p className="mt-1 text-slate-500">{category.slug}</p>
@@ -246,13 +257,18 @@ function AdminCategoriesPage() {
               <span className="field-label">Mô tả</span>
               <textarea name="description" value={formState.description} onChange={handleChange} rows="4" className="textarea-field" />
             </label>
-            <label>
-              <span className="field-label">Trạng thái</span>
-              <select name="status" value={formState.status} onChange={handleChange} className="select-field">
-                <option value="active">Hoạt động</option>
-                <option value="inactive">Tạm ẩn</option>
-              </select>
+            <label className="md:col-span-2">
+              <span className="field-label">Ảnh banner danh mục</span>
+              <input name="image" value={formState.image} onChange={handleChange} className="input-field" placeholder="/images/categories/nhan.jpg" />
+              <span className="mt-2 block text-xs text-slate-500">
+                Đặt ảnh trong server/public/images/categories rồi nhập đường dẫn dạng /images/categories/ten-file.
+              </span>
             </label>
+            {formState.image ? (
+              <div className="aspect-[8/3] overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50 md:col-span-2 [&>img]:h-full [&>img]:w-full [&>img]:object-cover [&>img]:object-center">
+                <img src={getPublicAssetUrl(formState.image)} alt="Preview banner danh mục" className="h-40 w-full object-cover" />
+              </div>
+            ) : null}
           </div>
 
           <div className="flex justify-end gap-3">

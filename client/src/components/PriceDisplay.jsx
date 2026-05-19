@@ -1,7 +1,8 @@
 /* eslint-disable react/prop-types */
 import { formatCurrency } from '../utils/format.js';
 
-function PriceDisplay({ price, oldPrice, size = 'md', align = 'start' }) {
+function PriceDisplay({ price, originalPrice, oldPrice, size = 'md', align = 'start' }) {
+  const comparePrice = originalPrice ?? oldPrice;
   const currentClassMap = {
     sm: 'text-lg',
     md: 'text-xl',
@@ -19,9 +20,9 @@ function PriceDisplay({ price, oldPrice, size = 'md', align = 'start' }) {
       <p className={`${currentClassMap[size] || currentClassMap.md} font-bold text-navy`}>
         {formatCurrency(price)}
       </p>
-      {oldPrice > price ? (
+      {comparePrice > price ? (
         <p className={`${oldClassMap[size] || oldClassMap.md} text-slate-400 line-through`}>
-          {formatCurrency(oldPrice)}
+          {formatCurrency(comparePrice)}
         </p>
       ) : null}
     </div>

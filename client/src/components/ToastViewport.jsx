@@ -28,7 +28,7 @@ function ToastViewport() {
               {toast.description ? <p className="mt-1 text-sm">{toast.description}</p> : null}
             </div>
             <button type="button" onClick={() => removeToast(toast.id)} className="btn-ghost !px-2 !py-1 text-xs">
-              Dong
+              Đóng
             </button>
           </div>
         </div>

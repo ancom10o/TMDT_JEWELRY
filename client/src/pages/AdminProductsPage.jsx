@@ -7,7 +7,15 @@ import FilterBar from '../components/admin/FilterBar.jsx';
 import StatusBadge from '../components/admin/StatusBadge.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { useAuth } from '../hooks/useAuth.js';
-import { createProduct, deleteProduct, getCategories, getProducts, getPublicAssetUrl, updateProduct } from '../services/api.js';
+import {
+  createProduct,
+  deleteProduct,
+  downloadAdminProductsExcel,
+  getAdminProducts,
+  getCategories,
+  getPublicAssetUrl,
+  updateProduct
+} from '../services/api.js';
 import { formatCurrency, formatCurrencyInput } from '../utils/format.js';
 import {
   genderOptions,
@@ -20,22 +28,33 @@ import {
 } from '../utils/productFilters.js';
 
 const initialFormState = {
+  sku: '',
   name: '',
   slug: '',
   description: '',
+  costPrice: '',
+  originalPrice: '',
   price: '',
-  salePrice: '',
   images: '',
   category: '',
   material: '',
   materialGroup: 'gold',
   materialDetail: 'Vàng 18K',
   gender: 'female',
+  weight: '',
+  sizeMode: 'free',
+  size: 'Free',
   stock: '',
   sold: '',
   featured: false,
-  isActive: true
+  status: 'active'
 };
+
+const productStatusOptions = [
+  { value: 'active', label: 'Đang bán' },
+  { value: 'inactive', label: 'Tạm ẩn' },
+  { value: 'draft', label: 'Bản nháp' }
+];
 
 const adminMaterialDetailOptions = [
   ...Object.values(materialDetailOptionsByGroup).flat().map((material) => ({
@@ -60,21 +79,26 @@ function buildFormState(product) {
   const materialDetail = normalizeMaterialDetail(product.materialDetail || product.material || '');
 
   return {
+    sku: product.sku || '',
     name: product.name || '',
     slug: product.slug || '',
     description: product.description || '',
-    price: String(product.oldPrice > product.price ? product.oldPrice : product.price || ''),
-    salePrice: String(product.price || ''),
+    costPrice: String(product.costPrice ?? ''),
+    originalPrice: String((product.originalPrice ?? product.oldPrice) || product.price || ''),
+    price: String(product.price || ''),
     images: Array.isArray(product.images) ? product.images.join('\n') : '',
     category: product.category?._id || '',
     material: product.material || '',
     materialGroup: product.materialGroup || 'gold',
     materialDetail,
     gender: product.gender || 'female',
+    weight: String(product.weight ?? ''),
+    sizeMode: product.size?.includes('Free') || !product.size?.length ? 'free' : 'custom',
+    size: product.size?.includes('Free') || !product.size?.length ? 'Free' : product.size.join('\n'),
     stock: String(product.stock ?? ''),
     sold: String(product.sold ?? 0),
     featured: Boolean(product.isFeatured),
-    isActive: product.status === 'active'
+    status: product.status || 'active'
   };
 }
 
@@ -84,14 +108,20 @@ function validateForm(formState) {
   if (!formState.description.trim()) return 'Mô tả không được để trống.';
   if (!formState.category) return 'Vui lòng chọn danh mục.';
 
-  const price = Number(formState.price);
-  const salePrice = Number(formState.salePrice);
+  const costPrice = Number(formState.costPrice || 0);
+  const originalPrice = Number(formState.originalPrice || 0);
+  const price = Number(formState.price || 0);
+  const weight = Number(formState.weight || 0);
   const stock = Number(formState.stock);
   const sold = Number(formState.sold || 0);
 
-  if (!Number.isFinite(price) || price <= 0) return 'Giá gốc phải lớn hơn 0.';
-  if (!Number.isFinite(salePrice) || salePrice <= 0) return 'Giá bán phải lớn hơn 0.';
-  if (salePrice > price) return 'Giá bán không được lớn hơn giá gốc.';
+  if (!Number.isFinite(costPrice) || costPrice < 0) return 'Giá nhập phải lớn hơn hoặc bằng 0.';
+  if (!Number.isFinite(originalPrice) || originalPrice < 0) return 'Giá gốc phải lớn hơn hoặc bằng 0.';
+  if (!Number.isFinite(price) || price < 0) return 'Giá bán phải lớn hơn hoặc bằng 0.';
+  if (costPrice > 0 && price < costPrice * 1.2) {
+    return `Giá bán phải lớn hơn hoặc bằng 120% giá nhập.`;
+  }
+  if (!Number.isFinite(weight) || weight < 0) return 'Khối lượng phải lớn hơn hoặc bằng 0.';
   if (!Number.isInteger(stock) || stock < 0) return 'Tồn kho phải là số nguyên lớn hơn hoặc bằng 0.';
   if (!Number.isInteger(sold) || sold < 0) return 'Số lượng đã bán phải là số nguyên lớn hơn hoặc bằng 0.';
 
@@ -102,32 +132,39 @@ function validateForm(formState) {
 }
 
 function buildPayload(formState) {
-  const oldPrice = Number(formState.price || 0);
-  const price = Number(formState.salePrice || 0);
-  const discount = oldPrice > price ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0;
   const materialDetail = formState.materialDetail.trim();
+  const size = formState.sizeMode === 'free'
+    ? ['Free']
+    : formState.size
+      .split('\n')
+      .map((item) => item.trim())
+      .filter(Boolean);
 
   return {
+    sku: formState.sku.trim(),
     name: formState.name.trim(),
     slug: normalizeSlug(formState.slug || formState.name),
     description: formState.description.trim(),
-    price,
-    oldPrice,
-    discount,
+    costPrice: Number(formState.costPrice || 0),
+    originalPrice: Number(formState.originalPrice || 0),
+    price: Number(formState.price || 0),
     images: formState.images.split('\n').map((item) => item.trim()).filter(Boolean),
     category: formState.category,
     material: materialDetail,
     materialGroup: formState.materialGroup,
     materialDetail,
     gender: formState.gender,
+    weight: Number(formState.weight || 0),
+    size,
     stock: Number(formState.stock || 0),
     sold: Number(formState.sold || 0),
     isFeatured: formState.featured,
-    status: formState.isActive ? 'active' : 'inactive'
+    status: formState.status
   };
 }
 
 function getStatusTone(product) {
+  if (product.status === 'draft') return 'info';
   if (product.status !== 'active') return 'neutral';
   if (product.stock <= 0) return 'danger';
   if (product.stock <= 10) return 'warning';
@@ -135,10 +172,15 @@ function getStatusTone(product) {
 }
 
 function getStatusLabel(product) {
+  if (product.status === 'draft') return 'Bản nháp';
   if (product.status !== 'active') return 'Tạm ẩn';
   if (product.stock <= 0) return 'Hết hàng';
   if (product.stock <= 10) return 'Sắp hết';
   return 'Đang bán';
+}
+
+function getOriginalPrice(product) {
+  return product.originalPrice || product.oldPrice || product.price || 0;
 }
 
 function AdminProductsPage() {
@@ -161,8 +203,22 @@ function AdminProductsPage() {
   const [viewingProduct, setViewingProduct] = useState(null);
   const [productToDelete, setProductToDelete] = useState(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [formErrorMessage, setFormErrorMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  useEffect(() => {
+    if (!formErrorMessage) {
+      return undefined;
+    }
+
+    const timer = globalThis.setTimeout(() => {
+      setFormErrorMessage('');
+    }, 5000);
+
+    return () => globalThis.clearTimeout(timer);
+  }, [formErrorMessage]);
 
   const loadProducts = useCallback(
     async (page = currentPage) => {
@@ -184,11 +240,11 @@ function AdminProductsPage() {
         }
       });
 
-      const response = await getProducts(params);
+      const response = await getAdminProducts(params, token);
       setProducts(response.products || []);
       setPagination(response.pagination || { page, limit: pagination.limit, total: 0, totalPages: 1 });
     },
-    [categoryFilter, currentPage, genderFilter, materialFilter, pagination.limit, searchKeyword, statusFilter, stockFilter]
+    [categoryFilter, currentPage, genderFilter, materialFilter, pagination.limit, searchKeyword, statusFilter, stockFilter, token]
   );
 
   useEffect(() => {
@@ -199,7 +255,7 @@ function AdminProductsPage() {
         setLoading(true);
         setErrorMessage('');
         const [productsResponse, categoriesResponse] = await Promise.all([
-          getProducts({
+          getAdminProducts({
             page: currentPage,
             limit: pagination.limit,
             q: searchKeyword.trim(),
@@ -209,7 +265,7 @@ function AdminProductsPage() {
             status: statusFilter || undefined,
             stockStatus: stockFilter || undefined,
             gender: genderFilter || undefined
-          }),
+          }, token),
           getCategories()
         ]);
 
@@ -232,7 +288,7 @@ function AdminProductsPage() {
     return () => {
       isMounted = false;
     };
-  }, [categoryFilter, currentPage, genderFilter, materialFilter, pagination.limit, searchKeyword, statusFilter, stockFilter]);
+  }, [categoryFilter, currentPage, genderFilter, materialFilter, pagination.limit, searchKeyword, statusFilter, stockFilter, token]);
 
   function resetToFirstPage(setter) {
     return (value) => {
@@ -244,17 +300,22 @@ function AdminProductsPage() {
   function openCreateModal() {
     setEditingProduct(null);
     setFormState(initialFormState);
+    setFormErrorMessage('');
     setIsFormOpen(true);
   }
 
   function openEditModal(product) {
     setEditingProduct(product);
     setFormState(buildFormState(product));
+    setFormErrorMessage('');
     setIsFormOpen(true);
   }
 
   function handleChange(event) {
     const { name, value, type, checked } = event.target;
+    if (formErrorMessage) {
+      setFormErrorMessage('');
+    }
     setFormState((current) => {
       const next = { ...current, [name]: type === 'checkbox' ? checked : value };
       if (name === 'name' && !editingProduct) {
@@ -262,6 +323,9 @@ function AdminProductsPage() {
       }
       if (name === 'materialGroup') {
         next.materialDetail = materialDetailOptionsByGroup[value]?.[0] || '';
+      }
+      if (name === 'sizeMode') {
+        next.size = value === 'free' ? 'Free' : '';
       }
       return next;
     });
@@ -271,13 +335,20 @@ function AdminProductsPage() {
     event.preventDefault();
     const validationMessage = validateForm(formState);
     if (validationMessage) {
-      setErrorMessage(validationMessage);
+      setFormErrorMessage(validationMessage);
+      showToast({
+        title: 'Thông tin sản phẩm chưa hợp lệ',
+        description: validationMessage,
+        type: 'error',
+        duration: 5000
+      });
       return;
     }
 
     try {
       setSubmitting(true);
       setErrorMessage('');
+      setFormErrorMessage('');
       const payload = buildPayload(formState);
 
       if (editingProduct) {
@@ -294,9 +365,11 @@ function AdminProductsPage() {
       setIsFormOpen(false);
       setEditingProduct(null);
       setFormState(initialFormState);
+      setFormErrorMessage('');
     } catch (error) {
-      setErrorMessage(error.response?.data?.message || 'Không thể lưu sản phẩm.');
-      showToast({ title: 'Lưu sản phẩm thất bại', type: 'error' });
+      const message = error.response?.data?.message || 'Không thể lưu sản phẩm.';
+      setFormErrorMessage(message);
+      showToast({ title: 'Lưu sản phẩm thất bại', description: message, type: 'error', duration: 5000 });
     } finally {
       setSubmitting(false);
     }
@@ -322,6 +395,24 @@ function AdminProductsPage() {
     }
   }
 
+  async function handleExportProducts() {
+    try {
+      setExporting(true);
+      const blob = await downloadAdminProductsExcel(token);
+      const url = globalThis.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'products-export.xlsx';
+      link.click();
+      globalThis.URL.revokeObjectURL(url);
+    } catch (error) {
+      setErrorMessage(error.response?.data?.message || 'KhÃ´ng thá»ƒ export Excel sáº£n pháº©m.');
+      showToast({ title: 'Export Excel tháº¥t báº¡i', type: 'error' });
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const previewImages = formState.images.split('\n').map((item) => item.trim()).filter(Boolean);
 
   return (
@@ -332,9 +423,14 @@ function AdminProductsPage() {
         description="Danh sách sản phẩm được tổ chức theo bảng, có tìm kiếm, lọc nhanh và form mở trong modal để tránh rời màn hình."
         meta={loading ? 'Đang tải sản phẩm...' : `${pagination.total} sản phẩm`}
         actions={
-          <button type="button" onClick={openCreateModal} className="btn-secondary">
-            Thêm sản phẩm
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={handleExportProducts} disabled={exporting} className="btn-outline">
+              {exporting ? 'Đang export...' : 'Export Excel'}
+            </button>
+            <button type="button" onClick={openCreateModal} className="btn-secondary">
+              Thêm sản phẩm
+            </button>
+          </div>
         }
       />
 
@@ -360,9 +456,11 @@ function AdminProductsPage() {
         </select>
         <select value={statusFilter} onChange={(event) => resetToFirstPage(setStatusFilter)(event.target.value)} className="select-field sm:max-w-xs">
           <option value="">Tất cả trạng thái</option>
-          <option value="active">Đang bán</option>
-          <option value="inactive">Tạm ẩn</option>
-          <option value="draft">Bản nháp</option>
+          {productStatusOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
         </select>
         <select value={genderFilter} onChange={(event) => resetToFirstPage(setGenderFilter)(event.target.value)} className="select-field sm:max-w-xs">
           <option value="">Tất cả giới tính</option>
@@ -392,6 +490,7 @@ function AdminProductsPage() {
         <div className="space-y-4">
           <DataTable
             columns={[
+              { key: 'sku', label: 'SKU' },
               { key: 'product', label: 'Sản phẩm' },
               { key: 'category', label: 'Danh mục' },
               { key: 'material', label: 'Chất liệu' },
@@ -404,6 +503,7 @@ function AdminProductsPage() {
           >
             {products.map((product) => (
               <tr key={product._id} className="border-t border-slate-100 align-top">
+                <td className="px-5 py-4 font-semibold text-slate-600">{product.sku || '--'}</td>
                 <td className="px-5 py-4">
                   <div className="flex gap-3">
                     <div className="h-16 w-16 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
@@ -420,7 +520,7 @@ function AdminProductsPage() {
                 <td className="px-5 py-4 text-slate-600">{getGenderLabel(product.gender) || '--'}</td>
                 <td className="px-5 py-4">
                   <p className="font-semibold text-navy">{formatCurrency(product.price)}</p>
-                  {product.oldPrice > product.price ? <p className="mt-1 text-slate-400 line-through">{formatCurrency(product.oldPrice)}</p> : null}
+                  {getOriginalPrice(product) > product.price ? <p className="mt-1 text-slate-400 line-through">{formatCurrency(getOriginalPrice(product))}</p> : null}
                 </td>
                 <td className="px-5 py-4 text-slate-600">
                   <p>Tồn: {product.stock}</p>
@@ -486,6 +586,13 @@ function AdminProductsPage() {
         onClose={() => setIsFormOpen(false)}
       >
         <form onSubmit={handleSubmit} className="space-y-6">
+          {formErrorMessage ? (
+            <div className="sticky top-0 z-20 rounded-[24px] border border-red-200 bg-red-50 px-4 py-4 text-sm font-medium text-red-700 shadow-[0_14px_34px_rgba(185,28,28,0.12)]">
+              <p className="font-semibold">Thông tin sản phẩm chưa hợp lệ</p>
+              <p className="mt-1">{formErrorMessage}</p>
+            </div>
+          ) : null}
+
           <div className="grid gap-4 md:grid-cols-2">
             <label>
               <span className="field-label">Tên sản phẩm *</span>
@@ -500,14 +607,23 @@ function AdminProductsPage() {
               <textarea name="description" value={formState.description} onChange={handleChange} rows="4" className="textarea-field" />
             </label>
             <label>
+              <span className="field-label">SKU</span>
+              <input name="sku" value={formState.sku} onChange={handleChange} className="input-field" placeholder="Để trống để tự sinh" />
+            </label>
+            <label>
+              <span className="field-label">Giá nhập</span>
+              <input type="number" name="costPrice" value={formState.costPrice} onChange={handleChange} className="input-field" />
+              {formState.costPrice ? <span className="mt-2 block text-xs text-slate-500">Hiển thị: {formatCurrencyInput(formState.costPrice)}₫</span> : null}
+            </label>
+            <label>
               <span className="field-label">Giá gốc *</span>
-              <input type="number" name="price" value={formState.price} onChange={handleChange} className="input-field" />
-              {formState.price ? <span className="mt-2 block text-xs text-slate-500">Hiển thị: {formatCurrencyInput(formState.price)}₫</span> : null}
+              <input type="number" name="originalPrice" value={formState.originalPrice} onChange={handleChange} className="input-field" />
+              {formState.originalPrice ? <span className="mt-2 block text-xs text-slate-500">Hiển thị: {formatCurrencyInput(formState.originalPrice)}₫</span> : null}
             </label>
             <label>
               <span className="field-label">Giá bán *</span>
-              <input type="number" name="salePrice" value={formState.salePrice} onChange={handleChange} className="input-field" />
-              {formState.salePrice ? <span className="mt-2 block text-xs text-slate-500">Hiển thị: {formatCurrencyInput(formState.salePrice)}₫</span> : null}
+              <input type="number" name="price" value={formState.price} onChange={handleChange} className="input-field" />
+              {formState.price ? <span className="mt-2 block text-xs text-slate-500">Hiển thị: {formatCurrencyInput(formState.price)}₫</span> : null}
             </label>
             <label>
               <span className="field-label">Danh mục *</span>
@@ -555,20 +671,50 @@ function AdminProductsPage() {
               )}
             </label>
             <label>
+              <span className="field-label">Khối lượng (g)</span>
+              <input type="number" name="weight" min="0" step="0.01" value={formState.weight} onChange={handleChange} className="input-field" placeholder="Ví dụ: 2.4" />
+            </label>
+            <label>
               <span className="field-label">Tồn kho *</span>
               <input type="number" name="stock" value={formState.stock} onChange={handleChange} className="input-field" />
             </label>
+            <div>
+              <span className="field-label">Size (cm)</span>
+              <div className="grid gap-3 rounded-[22px] border border-[#d8e1ea] bg-white p-4">
+                <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <input type="radio" name="sizeMode" value="free" checked={formState.sizeMode === 'free'} onChange={handleChange} className="h-4 w-4 border-slate-300 text-navy focus:ring-gold" />
+                  Free size
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <input type="radio" name="sizeMode" value="custom" checked={formState.sizeMode === 'custom'} onChange={handleChange} className="h-4 w-4 border-slate-300 text-navy focus:ring-gold" />
+                  Nhập size theo cm
+                </label>
+                {formState.sizeMode === 'custom' ? (
+                  <textarea name="size" value={formState.size} onChange={handleChange} rows="3" className="textarea-field !min-h-[92px]" placeholder="Mỗi dòng một size, ví dụ:&#10;15 cm&#10;16 cm&#10;17 cm" />
+                ) : null}
+              </div>
+            </div>
             <label>
+              <span className="field-label">Trạng thái</span>
+              <select name="status" value={formState.status} onChange={handleChange} className="select-field">
+                {productStatusOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {/* <label>
               <span className="field-label">Số lượng đã bán</span>
               <input type="number" name="sold" value={formState.sold} onChange={handleChange} className="input-field" />
-            </label>
+            </label> */}
             <label className="md:col-span-2">
               <span className="field-label">Danh sách ảnh *</span>
               <textarea name="images" value={formState.images} onChange={handleChange} rows="4" className="textarea-field" placeholder="Mỗi dòng là 1 URL ảnh" />
             </label>
           </div>
 
-          <div className="flex flex-wrap gap-5">
+          {/* <div className="flex flex-wrap gap-5">
             <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
               <input type="checkbox" name="featured" checked={formState.featured} onChange={handleChange} className="h-4 w-4 rounded border-slate-300 text-navy focus:ring-gold" />
               Sản phẩm nổi bật
@@ -577,7 +723,7 @@ function AdminProductsPage() {
               <input type="checkbox" name="isActive" checked={formState.isActive} onChange={handleChange} className="h-4 w-4 rounded border-slate-300 text-navy focus:ring-gold" />
               Đang hiển thị
             </label>
-          </div>
+          </div> */}
 
           {previewImages.length > 0 ? (
             <div className="grid gap-3 sm:grid-cols-3">
@@ -615,11 +761,15 @@ function AdminProductsPage() {
               </div>
               <div className="space-y-3 text-sm text-slate-600">
                 <p><span className="font-semibold text-navy">Slug:</span> {viewingProduct.slug}</p>
+                <p><span className="font-semibold text-navy">SKU:</span> {viewingProduct.sku || '--'}</p>
+                <p><span className="font-semibold text-navy">Giá nhập:</span> {formatCurrency(viewingProduct.costPrice || 0)}</p>
                 <p><span className="font-semibold text-navy">Giá bán:</span> {formatCurrency(viewingProduct.price)}</p>
-                <p><span className="font-semibold text-navy">Giá gốc:</span> {formatCurrency(viewingProduct.oldPrice)}</p>
+                <p><span className="font-semibold text-navy">Giá gốc:</span> {formatCurrency(getOriginalPrice(viewingProduct))}</p>
                 <p><span className="font-semibold text-navy">Tồn kho:</span> {viewingProduct.stock}</p>
                 <p><span className="font-semibold text-navy">Đã bán:</span> {viewingProduct.sold ?? 0}</p>
                 <p><span className="font-semibold text-navy">Giới tính:</span> {getGenderLabel(viewingProduct.gender) || '--'}</p>
+                <p><span className="font-semibold text-navy">Khối lượng:</span> {Number(viewingProduct.weight || 0) > 0 ? `${viewingProduct.weight} g` : '--'}</p>
+                <p><span className="font-semibold text-navy">Size:</span> {viewingProduct.size?.length ? viewingProduct.size.map((item) => (item === 'Free' ? 'Free size' : `${item}${String(item).toLowerCase().includes('cm') ? '' : ' cm'}`)).join(', ') : '--'}</p>
                 <p><span className="font-semibold text-navy">Nhóm chất liệu:</span> {getMaterialGroupLabel(viewingProduct.materialGroup) || '--'}</p>
                 <p><span className="font-semibold text-navy">Chi tiết chất liệu:</span> {getProductMaterialLabel(viewingProduct) || '--'}</p>
                 <p><span className="font-semibold text-navy">Trạng thái:</span> {getStatusLabel(viewingProduct)}</p>

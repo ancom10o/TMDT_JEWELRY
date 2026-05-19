@@ -9,7 +9,7 @@ export default {
         cream: '#f8f5ee'
       },
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif']
+        sans: ['Be Vietnam Pro', 'ui-sans-serif', 'system-ui', 'sans-serif']
       },
       boxShadow: {
         soft: '0 12px 30px rgba(0, 45, 98, 0.08)'

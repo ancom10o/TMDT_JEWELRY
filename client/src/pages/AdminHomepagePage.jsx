@@ -201,7 +201,7 @@ function ItemEditor({ label, items, onAdd, onRemove, onChange, fields, minItems 
       <div className="flex items-center justify-between gap-3">
         <p className="field-label">{label}</p>
         <button type="button" onClick={onAdd} className="btn-outline !px-4 !py-2">
-          Them item
+          Thêm item
         </button>
       </div>
 
@@ -216,7 +216,7 @@ function ItemEditor({ label, items, onAdd, onRemove, onChange, fields, minItems 
                 disabled={items.length <= minItems}
                 className="text-sm font-semibold text-red-600 disabled:cursor-not-allowed disabled:text-slate-300"
               >
-                Xoa
+                Xóa
               </button>
             </div>
 
@@ -244,7 +244,7 @@ function ItemEditor({ label, items, onAdd, onRemove, onChange, fields, minItems 
           </div>
         ))}
 
-        {!items.length ? <div className="rounded-[24px] border border-dashed border-slate-300 p-4 text-sm text-slate-500">Chua co item nao.</div> : null}
+        {!items.length ? <div className="rounded-[24px] border border-dashed border-slate-300 p-4 text-sm text-slate-500">Chưa có item nào.</div> : null}
       </div>
     </div>
   );
@@ -300,7 +300,7 @@ function AdminHomepagePage() {
         setBanners(response.banners || []);
       } catch (error) {
         if (isMounted) {
-          setErrorMessage(error.response?.data?.message || 'Khong the tai cau hinh homepage.');
+          setErrorMessage(error.response?.data?.message || 'Không thể tải cấu hình homepage.');
         }
       } finally {
         if (isMounted) {
@@ -422,7 +422,7 @@ function AdminHomepagePage() {
     event.preventDefault();
 
     if (!sectionFormState.key.trim()) {
-      setErrorMessage('Key section khong duoc de trong.');
+      setErrorMessage('Key section không được để trống.');
       return;
     }
 
@@ -442,19 +442,19 @@ function AdminHomepagePage() {
             .map((section) => (section._id === editingSection._id ? normalizeSection(response.section) : section))
             .sort((left, right) => left.order - right.order)
         );
-        showToast({ title: 'Da cap nhat section homepage', type: 'success' });
+        showToast({ title: 'Đã cập nhật section homepage', type: 'success' });
       } else {
         const response = await createHomeSection(payload, token);
         setSections((current) => [...current, normalizeSection(response.section)].sort((left, right) => left.order - right.order));
-        showToast({ title: 'Da tao section homepage', type: 'success' });
+        showToast({ title: 'Đã tạo section homepage', type: 'success' });
       }
 
       setIsSectionModalOpen(false);
       setEditingSection(null);
       setSectionFormState(createInitialSectionFormState());
     } catch (error) {
-      setErrorMessage(error.response?.data?.message || 'Khong the luu section homepage.');
-      showToast({ title: 'Luu section that bai', type: 'error' });
+      setErrorMessage(error.response?.data?.message || 'Không thể lưu section homepage.');
+      showToast({ title: 'Lưu section thất bại', type: 'error' });
     } finally {
       setSectionSubmitting(false);
     }
@@ -464,7 +464,7 @@ function AdminHomepagePage() {
     event.preventDefault();
 
     if (!bannerFormState.name.trim() || !bannerFormState.imageUrl.trim()) {
-      setErrorMessage('Banner can co ten va anh.');
+      setErrorMessage('Banner cần có tên và ảnh.');
       return;
     }
 
@@ -487,19 +487,19 @@ function AdminHomepagePage() {
       if (editingBanner) {
         const response = await updateBanner(editingBanner._id, payload, token);
         setBanners((current) => current.map((banner) => (banner._id === editingBanner._id ? response.banner : banner)));
-        showToast({ title: 'Da cap nhat banner', type: 'success' });
+        showToast({ title: 'Đã cập nhật banner', type: 'success' });
       } else {
         const response = await createBanner(payload, token);
         setBanners((current) => [response.banner, ...current]);
-        showToast({ title: 'Da tao banner', type: 'success' });
+        showToast({ title: 'Đã tạo banner', type: 'success' });
       }
 
       setIsBannerModalOpen(false);
       setEditingBanner(null);
       setBannerFormState(initialBannerFormState);
     } catch (error) {
-      setErrorMessage(error.response?.data?.message || 'Khong the luu banner.');
-      showToast({ title: 'Luu banner that bai', type: 'error' });
+      setErrorMessage(error.response?.data?.message || 'Không thể lưu banner.');
+      showToast({ title: 'Lưu banner thất bại', type: 'error' });
     } finally {
       setBannerSubmitting(false);
     }
@@ -509,10 +509,10 @@ function AdminHomepagePage() {
     try {
       const response = await updateHomeSection(section._id, { isActive: !section.isActive }, token);
       setSections((current) => current.map((item) => (item._id === section._id ? normalizeSection(response.section) : item)));
-      showToast({ title: 'Da cap nhat trang thai section', type: 'success' });
+      showToast({ title: 'Đã cập nhật trạng thái section', type: 'success' });
     } catch (error) {
-      setErrorMessage(error.response?.data?.message || 'Khong the cap nhat trang thai section.');
-      showToast({ title: 'Cap nhat trang thai that bai', type: 'error' });
+      setErrorMessage(error.response?.data?.message || 'Không thể cập nhật trạng thái section.');
+      showToast({ title: 'Cập nhật trạng thái thất bại', type: 'error' });
     }
   }
 
@@ -525,10 +525,10 @@ function AdminHomepagePage() {
       await deleteHomeSection(sectionToDelete._id, token);
       setSections((current) => current.filter((section) => section._id !== sectionToDelete._id));
       setSectionToDelete(null);
-      showToast({ title: 'Da xoa section homepage', type: 'success' });
+      showToast({ title: 'Đã xóa section homepage', type: 'success' });
     } catch (error) {
-      setErrorMessage(error.response?.data?.message || 'Khong the xoa section homepage.');
-      showToast({ title: 'Xoa section that bai', type: 'error' });
+      setErrorMessage(error.response?.data?.message || 'Không thể xóa section homepage.');
+      showToast({ title: 'Xóa section thất bại', type: 'error' });
     }
   }
 
@@ -547,10 +547,10 @@ function AdminHomepagePage() {
         }))
       );
       setBannerToDelete(null);
-      showToast({ title: 'Da xoa banner', type: 'success' });
+      showToast({ title: 'Đã xóa banner', type: 'success' });
     } catch (error) {
-      setErrorMessage(error.response?.data?.message || 'Khong the xoa banner.');
-      showToast({ title: 'Xoa banner that bai', type: 'error' });
+      setErrorMessage(error.response?.data?.message || 'Không thể xóa banner.');
+      showToast({ title: 'Xóa banner thất bại', type: 'error' });
     }
   }
 
@@ -558,10 +558,10 @@ function AdminHomepagePage() {
     try {
       const response = await reorderHomeSections(nextSections.map((section) => section._id), token);
       setSections(Array.isArray(response.sections) ? response.sections.map((section) => normalizeSection(section)) : []);
-      showToast({ title: 'Da cap nhat thu tu homepage', type: 'success' });
+      showToast({ title: 'Đã cập nhật thứ tự homepage', type: 'success' });
     } catch (error) {
-      setErrorMessage(error.response?.data?.message || 'Khong the cap nhat thu tu section.');
-      showToast({ title: 'Sap xep that bai', type: 'error' });
+      setErrorMessage(error.response?.data?.message || 'Không thể cập nhật thứ tự section.');
+      showToast({ title: 'Xếp thất bại', type: 'error' });
     }
   }
 
@@ -639,9 +639,9 @@ function AdminHomepagePage() {
               </label>
             );
           })}
-          {!filteredProducts.length ? <div className="rounded-2xl bg-white p-4 text-sm text-slate-500">Khong tim thay san pham phu hop.</div> : null}
+          {!filteredProducts.length ? <div className="rounded-2xl bg-white p-4 text-sm text-slate-500">Không tìm thấy sản phẩm phù hợp.</div> : null}
         </div>
-        {selectedProductsPreview.length > 0 ? <p className="text-xs text-slate-500">Da chon {selectedProductsPreview.length} san pham.</p> : null}
+        {selectedProductsPreview.length > 0 ? <p className="text-xs text-slate-500">Đã chọn {selectedProductsPreview.length} sản phẩm.</p> : null}
       </div>
     );
   }
@@ -649,7 +649,7 @@ function AdminHomepagePage() {
   function renderBannerSelector() {
     return (
       <div className="space-y-3">
-        <p className="field-label">Chon banner</p>
+        <p className="field-label">Chọn banner</p>
         <div className="max-h-80 space-y-3 overflow-y-auto rounded-[24px] border border-slate-200 bg-slate-50 p-3">
           {banners.map((banner) => {
             const checked = sectionFormState.banners.includes(banner._id);
@@ -676,7 +676,7 @@ function AdminHomepagePage() {
             );
           })}
         </div>
-        {selectedBannersPreview.length > 0 ? <p className="text-xs text-slate-500">Da chon {selectedBannersPreview.length} banner.</p> : null}
+        {selectedBannersPreview.length > 0 ? <p className="text-xs text-slate-500">Đã chọn {selectedBannersPreview.length} banner.</p> : null}
       </div>
     );
   }
@@ -688,7 +688,68 @@ function AdminHomepagePage() {
           <>
             <div className="grid gap-4 md:grid-cols-2">
               <label>
-                <span className="field-label">Tieu de</span>
+                <span className="field-label">Tiêu đề</span>
+                <input name="title" value={sectionFormState.title} onChange={handleSectionChange} className="input-field" />
+              </label>
+              <label>
+                <span className="field-label">Subtitle</span>
+                <input name="subtitle" value={sectionFormState.subtitle} onChange={handleSectionChange} className="input-field" />
+              </label>
+              {/* <label>
+                <span className="field-label">Label button</span>
+                <input name="buttonLabel" value={sectionFormState.buttonLabel} onChange={handleSectionChange} className="input-field" />
+              </label>
+              <label>
+                <span className="field-label">Link button</span>
+                <input name="buttonLink" value={sectionFormState.buttonLink} onChange={handleSectionChange} className="input-field" />
+              </label> */}
+            </div>
+            {renderBannerSelector()}
+          </>
+        );
+      case 'category_grid':
+        return (
+          <>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label>
+                <span className="field-label">Tiêu đề</span>
+                <input name="title" value={sectionFormState.title} onChange={handleSectionChange} className="input-field" />
+              </label>
+              <label>
+                <span className="field-label">Subtitle</span>
+                <input name="subtitle" value={sectionFormState.subtitle} onChange={handleSectionChange} className="input-field" />
+              </label>
+              <label>
+                <span className="field-label">Label Button</span>
+                <input name="buttonLabel" value={sectionFormState.buttonLabel} onChange={handleSectionChange} className="input-field" />
+              </label>
+              <label>
+                <span className="field-label">Link Button</span>
+                <input name="buttonLink" value={sectionFormState.buttonLink} onChange={handleSectionChange} className="input-field" />
+              </label>
+            </div>
+            <ItemEditor
+              label="Danh sach danh mục"
+              items={sectionFormState.items}
+              onAdd={addItem}
+              onRemove={removeItem}
+              onChange={updateItem}
+              fields={[
+                { name: 'title', label: 'Tên danh mục' },
+                { name: 'description', label: 'Mô tả', multiline: true, fullWidth: true },
+                { name: 'image', label: 'Ảnh' },
+                { name: 'link', label: 'Link' },
+                // { name: 'color', label: 'Màu nền / gradient CSS', fullWidth: true }
+              ]}
+            />
+          </>
+        );
+      case 'product_slider':
+        return (
+          <>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label>
+                <span className="field-label">Tiêu đề</span>
                 <input name="title" value={sectionFormState.title} onChange={handleSectionChange} className="input-field" />
               </label>
               <label>
@@ -702,51 +763,6 @@ function AdminHomepagePage() {
               <label>
                 <span className="field-label">Link button</span>
                 <input name="buttonLink" value={sectionFormState.buttonLink} onChange={handleSectionChange} className="input-field" />
-              </label>
-            </div>
-            {renderBannerSelector()}
-          </>
-        );
-      case 'category_grid':
-        return (
-          <>
-            <div className="grid gap-4 md:grid-cols-2">
-              <label>
-                <span className="field-label">Tieu de</span>
-                <input name="title" value={sectionFormState.title} onChange={handleSectionChange} className="input-field" />
-              </label>
-              <label>
-                <span className="field-label">Subtitle</span>
-                <input name="subtitle" value={sectionFormState.subtitle} onChange={handleSectionChange} className="input-field" />
-              </label>
-            </div>
-            <ItemEditor
-              label="Danh sach danh muc"
-              items={sectionFormState.items}
-              onAdd={addItem}
-              onRemove={removeItem}
-              onChange={updateItem}
-              fields={[
-                { name: 'title', label: 'Tên danh mục' },
-                { name: 'description', label: 'Mô tả', multiline: true, fullWidth: true },
-                { name: 'image', label: 'Ảnh' },
-                { name: 'link', label: 'Link' },
-                { name: 'color', label: 'Màu nền / gradient CSS', fullWidth: true }
-              ]}
-            />
-          </>
-        );
-      case 'product_slider':
-        return (
-          <>
-            <div className="grid gap-4 md:grid-cols-2">
-              <label>
-                <span className="field-label">Tieu de</span>
-                <input name="title" value={sectionFormState.title} onChange={handleSectionChange} className="input-field" />
-              </label>
-              <label>
-                <span className="field-label">Subtitle</span>
-                <input name="subtitle" value={sectionFormState.subtitle} onChange={handleSectionChange} className="input-field" />
               </label>
               <label>
                 <span className="field-label">Variant layout</span>
@@ -760,27 +776,27 @@ function AdminHomepagePage() {
                 </select>
               </label>
               <label>
-                <span className="field-label">Nguon san pham</span>
+                <span className="field-label">Nguồn sản phẩm</span>
                 <select
                   value={sectionFormState.settings.sourceMode || 'manual'}
                   onChange={(event) => handleSettingsChange('sourceMode', event.target.value)}
                   className="select-field"
                 >
-                  <option value="manual">Chon san pham bang tay</option>
-                  <option value="query">Lay theo duong dan</option>
+                  <option value="manual">Chọn sản phẩm bằng tay</option>
+                  <option value="query">Lấy theo đường dẫn</option>
                 </select>
               </label>
             </div>
             {(sectionFormState.settings.sourceMode || 'manual') === 'query' ? (
               <label className="block">
-                <span className="field-label">Duong dan lay san pham</span>
+                <span className="field-label">Đường dẫn lấy sản phẩm</span>
                 <input
                   value={sectionFormState.settings.productQuery || '/products'}
                   onChange={(event) => handleSettingsChange('productQuery', event.target.value)}
                   className="input-field"
                   placeholder="/products?category=nhan&gender=female"
                 />
-                <span className="mt-2 block text-xs text-slate-500">Section se lay 8 san pham dau tien theo query nay.</span>
+                <span className="mt-2 block text-xs text-slate-500">Section sẽ lấy 8 sản phẩm đầu tiên.</span>
               </label>
             ) : (
               renderProductSelector()
@@ -792,21 +808,21 @@ function AdminHomepagePage() {
           <>
             <div className="grid gap-4 md:grid-cols-2">
               <label>
-                <span className="field-label">Tieu de</span>
+                <span className="field-label">Tiêu đề</span>
                 <input name="title" value={sectionFormState.title} onChange={handleSectionChange} className="input-field" />
               </label>
               <label>
                 <span className="field-label">Subtitle</span>
                 <input name="subtitle" value={sectionFormState.subtitle} onChange={handleSectionChange} className="input-field" />
               </label>
-              <label>
+              {/* <label>
                 <span className="field-label">Label button</span>
                 <input name="buttonLabel" value={sectionFormState.buttonLabel} onChange={handleSectionChange} className="input-field" />
               </label>
               <label>
                 <span className="field-label">Link button</span>
                 <input name="buttonLink" value={sectionFormState.buttonLink} onChange={handleSectionChange} className="input-field" />
-              </label>
+              </label> */}
             </div>
             {renderBannerSelector()}
           </>
@@ -816,7 +832,7 @@ function AdminHomepagePage() {
           <>
             <div className="grid gap-4 md:grid-cols-2">
               <label>
-                <span className="field-label">Tieu de</span>
+                <span className="field-label">Tiêu đề</span>
                 <input name="title" value={sectionFormState.title} onChange={handleSectionChange} className="input-field" />
               </label>
               <label>
@@ -871,15 +887,15 @@ function AdminHomepagePage() {
               </label>
             </div>
             <ItemEditor
-              label="Danh sach dich vu"
+              label="Danh sách dịch vụ"
               items={sectionFormState.items}
               onAdd={addItem}
               onRemove={removeItem}
               onChange={updateItem}
               fields={[
-                { name: 'icon', label: 'Icon / ky tu ngan' },
-                { name: 'title', label: 'Tieu de' },
-                { name: 'description', label: 'Mo ta', multiline: true, fullWidth: true }
+                { name: 'icon', label: 'Icon / ký tự ngắn' },
+                { name: 'title', label: 'Tiêu đề' },
+                { name: 'description', label: 'Mô tả', multiline: true, fullWidth: true }
               ]}
             />
           </>
@@ -889,7 +905,7 @@ function AdminHomepagePage() {
           <>
             <div className="grid gap-4 md:grid-cols-2">
               <label>
-                <span className="field-label">Tieu de</span>
+                <span className="field-label">Tiêu đề</span>
                 <input name="title" value={sectionFormState.title} onChange={handleSectionChange} className="input-field" />
               </label>
               <label>
@@ -897,7 +913,7 @@ function AdminHomepagePage() {
                 <input name="subtitle" value={sectionFormState.subtitle} onChange={handleSectionChange} className="input-field" />
               </label>
               <label>
-                <span className="field-label">Kieu card</span>
+                <span className="field-label">Kiểu card</span>
                 <select
                   value={sectionFormState.settings.variant || 'standard'}
                   onChange={(event) => handleSettingsChange('variant', event.target.value)}
@@ -908,11 +924,11 @@ function AdminHomepagePage() {
                 </select>
               </label>
               <label>
-                <span className="field-label">Label button tong</span>
+                <span className="field-label">Label button tổng</span>
                 <input name="buttonLabel" value={sectionFormState.buttonLabel} onChange={handleSectionChange} className="input-field" />
               </label>
               <label className="md:col-span-2">
-                <span className="field-label">Link button tong</span>
+                <span className="field-label">Link button tổng</span>
                 <input name="buttonLink" value={sectionFormState.buttonLink} onChange={handleSectionChange} className="input-field" />
               </label>
             </div>
@@ -923,12 +939,12 @@ function AdminHomepagePage() {
               onRemove={removeItem}
               onChange={updateItem}
               fields={[
-                { name: 'title', label: 'Tieu de' },
+                { name: 'title', label: 'Tiêu đề' },
                 { name: 'subtitle', label: 'Tagline' },
-                { name: 'description', label: 'Mo ta', multiline: true, fullWidth: true },
-                { name: 'image', label: 'Anh' },
+                { name: 'description', label: 'Mô tả', multiline: true, fullWidth: true },
+                { name: 'image', label: 'Ảnh' },
                 { name: 'link', label: 'Link' },
-                { name: 'color', label: 'Mau phu' }
+                // { name: 'color', label: 'Màu phụ' }
               ]}
             />
           </>
@@ -942,16 +958,16 @@ function AdminHomepagePage() {
     <section className="space-y-6">
       <AdminPageHeader
         eyebrow="Homepage CMS"
-        title="Quan ly homepage theo type"
-        description="Moi section homepage co type ro rang. Form admin se chi hien field phu hop voi tung loai section."
-        meta={loading ? 'Dang tai cau hinh...' : `${activeSections}/${sections.length} section dang hien thi`}
+        title="Quản lý homepage theo type"
+        description="Mỗi section homepage có type rõ ràng."
+        meta={loading ? 'Đang tải cấu hình...' : `${activeSections}/${sections.length} section đang hiển thị`}
         actions={
           <div className="flex flex-wrap gap-3">
             <button type="button" onClick={openCreateSectionModal} className="btn-secondary">
-              Them section
+              Thêm section
             </button>
             <button type="button" onClick={openCreateBannerModal} className="btn-outline">
-              Them banner
+              Thêm banner
             </button>
           </div>
         }
@@ -963,7 +979,7 @@ function AdminHomepagePage() {
         <div className="space-y-4">
           <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-5">
             <p className="text-sm font-semibold text-navy">Section homepage</p>
-            <p className="mt-2 text-sm text-slate-600">Keo tha de doi thu tu. Moi section hien loai, so item va du lieu lien quan de admin de quan sat.</p>
+            <p className="mt-2 text-sm text-slate-600">Kéo thả để đổi thứ tự. Mỗi section hiện loại, số item và dữ liệu liên quan để admin dễ theo dõi.</p>
           </div>
 
           {loading ? (
@@ -997,13 +1013,13 @@ function AdminHomepagePage() {
                           </span>
                           <span className="rounded-full bg-[#fff8e2] px-3 py-1 text-xs font-semibold text-[#9b7b18]">{typeMeta.label}</span>
                           <span className={`rounded-full px-3 py-1 text-xs font-semibold ${section.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                            {section.isActive ? 'Dang bat' : 'Dang tat'}
+                            {section.isActive ? 'Đang bật' : 'Đang tắt'}
                           </span>
                         </div>
                         <h3 className="mt-3 text-xl font-semibold text-navy">{section.title || section.key}</h3>
                         <p className="mt-2 text-sm leading-6 text-slate-600">{typeMeta.description}</p>
                         <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-500">
-                          <span>{normalizedSection.products.length} san pham</span>
+                          <span>{normalizedSection.products.length} sản phẩm</span>
                           <span>{normalizedSection.banners.length} banner</span>
                           <span>{normalizedSection.items.length} item</span>
                           <span>Key: {section.key}</span>
@@ -1012,17 +1028,17 @@ function AdminHomepagePage() {
 
                       <div className="flex flex-nowrap items-center gap-2 self-start">
                         <button type="button" onClick={() => handleQuickToggle(section)} className="btn-outline shrink-0 !px-4 !py-2">
-                          {section.isActive ? 'Tat' : 'Bat'}
+                          {section.isActive ? 'Tắt' : 'Bật'}
                         </button>
                         <button type="button" onClick={() => openEditSectionModal(section)} className="btn-outline shrink-0 !px-4 !py-2">
-                          Sua
+                          Sửa
                         </button>
                         <button
                           type="button"
                           onClick={() => setSectionToDelete(section)}
                           className="inline-flex shrink-0 items-center justify-center rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
                         >
-                          Xoa
+                          Xóa
                         </button>
                       </div>
                     </div>
@@ -1036,7 +1052,7 @@ function AdminHomepagePage() {
         <div className="space-y-4">
           <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-5">
             <p className="text-sm font-semibold text-navy">Kho banner</p>
-            <p className="mt-2 text-sm text-slate-600">Banner duoc tai dung cho hero banner va promo banner. Section khong can banner se khong hien kho nay trong form.</p>
+            <p className="mt-2 text-sm text-slate-600">Banner được sử dụng cho hero banner và promo banner.</p>
           </div>
 
           {loading ? (
@@ -1059,19 +1075,19 @@ function AdminHomepagePage() {
                       <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">{getBannerTypeMeta(banner.bannerType).label}</p>
                     </div>
                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${banner.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                      {banner.isActive ? 'Bat' : 'Tat'}
+                      {banner.isActive ? 'Bật' : 'Tắt'}
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button type="button" onClick={() => openEditBannerModal(banner)} className="btn-outline !px-4 !py-2">
-                      Sua banner
+                      Sửa banner
                     </button>
                     <button
                       type="button"
                       onClick={() => setBannerToDelete(banner)}
                       className="inline-flex items-center justify-center rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
                     >
-                      Xoa
+                      Xóa
                     </button>
                   </div>
                 </div>
@@ -1083,8 +1099,8 @@ function AdminHomepagePage() {
 
       <AdminModal
         open={isSectionModalOpen}
-        title={editingSection ? 'Cap nhat section homepage' : 'Them section homepage'}
-        description="Form duoc thay doi theo type de admin chi nhap dung noi dung can thiet."
+        title={editingSection ? 'Cập nhật section homepage' : 'Thêm section homepage'}
+        description="Form được thay đổi theo type để admin chỉ nhập đúng nội dung cần thiết."
         onClose={() => setIsSectionModalOpen(false)}
       >
         <form onSubmit={handleSectionSubmit} className="space-y-6">
@@ -1094,12 +1110,12 @@ function AdminHomepagePage() {
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <label>
-              <span className="field-label">Key *</span>
+            {/* <label>
+              <span className="field-label">Key * </span>
               <input name="key" value={sectionFormState.key} onChange={handleSectionChange} className="input-field" />
-            </label>
+            </label> */}
             <label>
-              <span className="field-label">Loai section *</span>
+              <span className="field-label">Loại section *</span>
               <select name="type" value={sectionFormState.type} onChange={handleSectionTypeChange} className="select-field">
                 {sectionTypeOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -1109,7 +1125,7 @@ function AdminHomepagePage() {
               </select>
             </label>
             <label>
-              <span className="field-label">Thu tu hien thi</span>
+              <span className="field-label">Thứ tự hiển thị</span>
               <input type="number" min="1" name="order" value={sectionFormState.order} onChange={handleSectionChange} className="input-field" />
             </label>
           </div>
@@ -1125,32 +1141,32 @@ function AdminHomepagePage() {
             <p className="text-sm font-semibold text-navy">Preview nhanh</p>
             <div className="mt-3 grid gap-3 text-sm text-slate-600 md:grid-cols-2">
               <div>
-                <span className="font-semibold text-navy">Tieu de:</span> {sectionFormState.title || 'Chua nhap'}
+                <span className="font-semibold text-navy">Tiêu đề:</span> {sectionFormState.title || 'Chưa nhập'}
               </div>
               <div>
-                <span className="font-semibold text-navy">Loai:</span> {sectionTypeMeta.label}
+                <span className="font-semibold text-navy">Loại:</span> {sectionTypeMeta.label}
               </div>
               <div>
                 <span className="font-semibold text-navy">Banner:</span> {sectionFormState.banners.length}
               </div>
               <div>
-                <span className="font-semibold text-navy">San pham:</span> {sectionFormState.products.length}
+                <span className="font-semibold text-navy">Sản phẩm:</span> {sectionFormState.products.length}
               </div>
               <div>
                 <span className="font-semibold text-navy">Items:</span> {sectionFormState.items.length}
               </div>
               <div>
-                <span className="font-semibold text-navy">Dang bat:</span> {sectionFormState.isActive ? 'Co' : 'Khong'}
+                <span className="font-semibold text-navy">Đang bật:</span> {sectionFormState.isActive ? 'Có' : 'Không'}
               </div>
             </div>
           </div>
 
           <div className="flex justify-end gap-3">
             <button type="button" onClick={() => setIsSectionModalOpen(false)} className="btn-outline">
-              Huy
+              Hủy
             </button>
             <button type="submit" disabled={sectionSubmitting} className="btn-secondary">
-              {sectionSubmitting ? 'Dang luu...' : 'Luu section'}
+              {sectionSubmitting ? 'Đang lưu...' : 'Lưu section'}
             </button>
           </div>
         </form>
@@ -1158,18 +1174,18 @@ function AdminHomepagePage() {
 
       <AdminModal
         open={isBannerModalOpen}
-        title={editingBanner ? 'Cap nhat banner' : 'Them banner'}
-        description="Banner dong duoc dung lai cho homepage."
+        title={editingBanner ? 'Cập nhật banner' : 'Thêm banner'}
+        description="Banner động được dùng lại cho homepage."
         onClose={() => setIsBannerModalOpen(false)}
       >
         <form onSubmit={handleBannerSubmit} className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2">
               <label>
-                <span className="field-label">Ten banner *</span>
+                <span className="field-label">Tên banner *</span>
                 <input name="name" value={bannerFormState.name} onChange={handleBannerChange} className="input-field" />
               </label>
             <label>
-              <span className="field-label">Loai banner</span>
+              <span className="field-label">Loại banner</span>
               <select name="bannerType" value={bannerFormState.bannerType} onChange={handleBannerChange} className="select-field">
                 {BANNER_TYPE_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -1183,15 +1199,15 @@ function AdminHomepagePage() {
               <input name="buttonLink" value={bannerFormState.buttonLink} onChange={handleBannerChange} className="input-field" />
             </label>
             <label className="md:col-span-2">
-              <span className="field-label">Anh desktop *</span>
+              <span className="field-label">Ảnh desktop *</span>
               <input name="imageUrl" value={bannerFormState.imageUrl} onChange={handleBannerChange} className="input-field" />
             </label>
             <label className="md:col-span-2">
-              <span className="field-label">Anh mobile</span>
+              <span className="field-label">Ảnh mobile</span>
               <input name="mobileImageUrl" value={bannerFormState.mobileImageUrl} onChange={handleBannerChange} className="input-field" />
             </label>
             <label>
-              <span className="field-label">Tieu de</span>
+              <span className="field-label">Tiêu đề</span>
               <input name="title" value={bannerFormState.title} onChange={handleBannerChange} className="input-field" />
             </label>
             <label>
@@ -1199,7 +1215,7 @@ function AdminHomepagePage() {
               <input name="buttonLabel" value={bannerFormState.buttonLabel} onChange={handleBannerChange} className="input-field" />
             </label>
             <label className="md:col-span-2">
-              <span className="field-label">Mo ta</span>
+              <span className="field-label">Mô tả</span>
               <textarea name="subtitle" value={bannerFormState.subtitle} onChange={handleBannerChange} rows="3" className="textarea-field" />
             </label>
           </div>
@@ -1207,12 +1223,12 @@ function AdminHomepagePage() {
           <div className="rounded-[24px] border border-[#ead8aa] bg-[#fffaf0] p-4">
             <p className="text-sm font-semibold text-navy">{getBannerTypeMeta(bannerFormState.bannerType).label}</p>
             <p className="mt-1 text-sm text-slate-600">{getBannerTypeMeta(bannerFormState.bannerType).description}</p>
-            <p className="mt-2 text-xs uppercase tracking-[0.14em] text-slate-500">Hero Banner: Desktop 1920x720 (8:3), Mobile 1200x900 (4:3)</p>
+            {/* <p className="mt-2 text-xs uppercase tracking-[0.14em] text-slate-500">Hero Banner: Desktop 1920x720 (8:3), Mobile 1200x900 (4:3)</p> */}
           </div>
 
           <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
             <input type="checkbox" name="isActive" checked={bannerFormState.isActive} onChange={handleBannerChange} className="h-4 w-4 rounded border-slate-300 text-navy focus:ring-gold" />
-            Bat banner
+            Kích hoạt banner
           </label>
 
           {bannerFormState.imageUrl ? (
@@ -1225,10 +1241,10 @@ function AdminHomepagePage() {
 
           <div className="flex justify-end gap-3">
             <button type="button" onClick={() => setIsBannerModalOpen(false)} className="btn-outline">
-              Huy
+              Hủy
             </button>
             <button type="submit" disabled={bannerSubmitting} className="btn-secondary">
-              {bannerSubmitting ? 'Dang luu...' : 'Luu banner'}
+              {bannerSubmitting ? 'Đang lưu...' : 'Lưu banner'}
             </button>
           </div>
         </form>
@@ -1236,18 +1252,18 @@ function AdminHomepagePage() {
 
       <ConfirmDialog
         open={Boolean(sectionToDelete)}
-        title="Xac nhan xoa section"
-        description={sectionToDelete ? `Ban dang xoa "${sectionToDelete.title || sectionToDelete.key}". Hanh dong nay khong the hoan tac.` : ''}
-        confirmLabel="Xoa section"
+        title="Xác nhận xóa section"
+        description={sectionToDelete ? `Bạn đang xóa "${sectionToDelete.title || sectionToDelete.key}". Hành động này không thể hoàn tác.` : ''}
+        confirmLabel="Xóa section"
         onConfirm={confirmDeleteSection}
         onClose={() => setSectionToDelete(null)}
       />
 
       <ConfirmDialog
         open={Boolean(bannerToDelete)}
-        title="Xac nhan xoa banner"
-        description={bannerToDelete ? `Ban dang xoa "${bannerToDelete.name}". Hanh dong nay khong the hoan tac.` : ''}
-        confirmLabel="Xoa banner"
+        title="Xác nhận xóa banner"
+        description={bannerToDelete ? `Bạn đang xóa "${bannerToDelete.name}". Hành động này không thể hoàn tác.` : ''}
+        confirmLabel="Xóa banner"
         onConfirm={confirmDeleteBanner}
         onClose={() => setBannerToDelete(null)}
       />

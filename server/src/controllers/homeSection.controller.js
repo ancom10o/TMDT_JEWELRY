@@ -100,7 +100,7 @@ export async function getAdminHomeSections(req, res, next) {
       buildSectionQuery(false),
       Banner.find().sort({ createdAt: -1 }),
       Product.find({ status: 'active' })
-        .select('name slug images price oldPrice status isFeatured category')
+        .select('name slug images price originalPrice status isFeatured category')
         .populate('category', 'name slug')
         .sort({ createdAt: -1 })
         .limit(120),

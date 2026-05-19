@@ -5,7 +5,12 @@ import {
   getBanners,
   updateBanner
 } from '../controllers/banner.controller.js';
-import { getDashboardStats } from '../controllers/admin.controller.js';
+import {
+  exportMonthlyRevenueExcel,
+  exportProductsExcel,
+  getDashboardStats
+} from '../controllers/admin.controller.js';
+import { getAdminProducts } from '../controllers/product.controller.js';
 import {
   createHomeSection,
   deleteHomeSection,
@@ -19,6 +24,9 @@ const router = Router();
 
 router.use(protect, admin);
 router.get('/dashboard', getDashboardStats);
+router.get('/products', getAdminProducts);
+router.get('/exports/products', exportProductsExcel);
+router.get('/exports/revenue', exportMonthlyRevenueExcel);
 router.get('/homepage', getAdminHomeSections);
 router.post('/homepage/sections', createHomeSection);
 router.put('/homepage/sections/:id', updateHomeSection);

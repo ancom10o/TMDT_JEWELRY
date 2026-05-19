@@ -172,6 +172,11 @@ export async function getUsers(token) {
   return response.data;
 }
 
+export async function getUserOrders(userId, token) {
+  const response = await api.get(`/users/${userId}/orders`, buildAuthConfig(token));
+  return response.data;
+}
+
 export async function getWishlist(token) {
   const response = await api.get('/users/wishlist', buildAuthConfig(token));
   return response.data;
@@ -187,13 +192,46 @@ export async function removeWishlistItem(productId, token) {
   return response.data;
 }
 
+export async function updateMyProfile(payload, token) {
+  const response = await api.put('/users/me', payload, buildAuthConfig(token));
+  return response.data;
+}
+
 export async function updateUser(userId, payload, token) {
   const response = await api.put(`/users/${userId}`, payload, buildAuthConfig(token));
   return response.data;
 }
 
-export async function getAdminDashboard(token) {
-  const response = await api.get('/admin/dashboard', buildAuthConfig(token));
+export async function getAdminDashboard(token, params = {}) {
+  const response = await api.get('/admin/dashboard', {
+    ...buildAuthConfig(token),
+    params
+  });
+  return response.data;
+}
+
+export async function getAdminProducts(params = {}, token) {
+  const response = await api.get('/admin/products', {
+    ...buildAuthConfig(token),
+    params
+  });
+  return response.data;
+}
+
+export async function downloadAdminProductsExcel(token) {
+  const response = await api.get('/admin/exports/products', {
+    ...buildAuthConfig(token),
+    responseType: 'blob'
+  });
+  return response.data;
+}
+
+export async function downloadMonthlyRevenueExcel({ year, month, fromDate, toDate }, token) {
+  const response = await api.get('/admin/exports/revenue', {
+    ...buildAuthConfig(token),
+    params: { year, month, fromDate, toDate },
+    responseType: 'blob'
+  });
   return response.data;
 }
 

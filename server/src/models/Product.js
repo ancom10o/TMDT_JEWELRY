@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { buildProductSearchText } from '../utils/search.js';
 
 function normalizeGender(value) {
   const normalizedValue = String(value || '').trim().toLowerCase();
@@ -40,8 +41,7 @@ const productSchema = new mongoose.Schema(
       type: String,
       unique: true,
       trim: true,
-      uppercase: true,
-      sparse: true
+      uppercase: true
     },
     slug: {
       type: String,
@@ -65,15 +65,19 @@ const productSchema = new mongoose.Schema(
       required: true,
       min: 0
     },
-    oldPrice: {
+    costPrice: {
       type: Number,
       min: 0,
       default: 0
     },
-    discount: {
+    originalPrice: {
       type: Number,
       min: 0,
-      max: 100,
+      default: 0
+    },
+    oldPrice: {
+      type: Number,
+      min: 0,
       default: 0
     },
     images: {
@@ -157,15 +161,52 @@ const productSchema = new mongoose.Schema(
       type: String,
       enum: ['draft', 'active', 'inactive'],
       default: 'active'
+    },
+    searchText: {
+      type: String,
+      index: true,
+      default: ''
     }
   },
   {
     timestamps: true,
-    suppressReservedKeysWarning: true
+    suppressReservedKeysWarning: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
   }
 );
 
-productSchema.pre('validate', function normalizeLegacyProductFields(next) {
+productSchema.virtual('discountPercent').get(function getDiscountPercent() {
+  const comparePrice = this.originalPrice || this.oldPrice || 0;
+
+  if (!comparePrice || comparePrice <= this.price) {
+    return 0;
+  }
+
+  return Math.round(((comparePrice - this.price) / comparePrice) * 100);
+});
+
+async function generateSku() {
+  const latestProduct = await mongoose
+    .model('Product')
+    .findOne({ sku: /^JA-\d{6}$/ })
+    .sort({ sku: -1 })
+    .select('sku')
+    .lean();
+
+  const latestNumber = latestProduct?.sku ? Number(latestProduct.sku.replace('JA-', '')) : 0;
+  return `JA-${String(latestNumber + 1).padStart(6, '0')}`;
+}
+
+productSchema.pre('validate', async function normalizeLegacyProductFields(next) {
+  if (!this.sku) {
+    this.sku = await generateSku();
+  }
+
+  if (!this.originalPrice) {
+    this.originalPrice = this.oldPrice || this.price;
+  }
+
   if (!this.materialDetail && this.material) {
     this.materialDetail = this.material;
   }
@@ -173,6 +214,21 @@ productSchema.pre('validate', function normalizeLegacyProductFields(next) {
   if (!this.materialGroup || this.isModified('material') || this.isModified('materialDetail') || this.isModified('materialGroup')) {
     const explicitGroup = this.isModified('materialGroup') ? this.materialGroup : '';
     this.materialGroup = normalizeMaterialGroup(explicitGroup, this.materialDetail || this.material);
+  }
+
+  if (
+    !this.searchText ||
+    (!this.isModified('searchText') &&
+      (this.isModified('name') ||
+        this.isModified('slug') ||
+        this.isModified('description') ||
+        this.isModified('gender') ||
+        this.isModified('material') ||
+        this.isModified('materialDetail') ||
+        this.isModified('materialGroup') ||
+        this.isModified('stone')))
+  ) {
+    this.searchText = buildProductSearchText(this);
   }
 
   next();

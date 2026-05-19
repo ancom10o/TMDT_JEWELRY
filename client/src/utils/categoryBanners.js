@@ -1,7 +1,7 @@
 export const defaultCategoryBanner = {
   title: 'Trang sức được tuyển chọn',
   description: 'Khám phá các thiết kế thanh lịch dành cho quà tặng, sự kiện và phong cách hằng ngày.',
-  image: '/banners/categories/default-category-banner.jpg',
+  image: '/images/category_default_.png',
   overlay: 'from-[#fff4df]/85 via-[#fffaf2]/50 to-[#e9eef7]/35'
 };
 

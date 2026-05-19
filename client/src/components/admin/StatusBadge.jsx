@@ -9,7 +9,7 @@ const toneMap = {
 };
 
 function StatusBadge({ label, tone = 'neutral' }) {
-  return <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase ${toneMap[tone] || toneMap.neutral}`}>{label}</span>;
+  return <span className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold uppercase ${toneMap[tone] || toneMap.neutral}`}>{label}</span>;
 }
 
 export default StatusBadge;

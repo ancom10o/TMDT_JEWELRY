@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import AdminModal from '../components/admin/AdminModal.jsx';
 import AdminPageHeader from '../components/admin/AdminPageHeader.jsx';
 import DataTable from '../components/admin/DataTable.jsx';
@@ -22,6 +23,23 @@ function formatDateTime(value) {
   }).format(new Date(value));
 }
 
+function formatDateInput(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatMonthInput(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+}
+
 function getStatusTone(status) {
   const map = {
     pending: 'warning',
@@ -37,6 +55,9 @@ function getStatusTone(status) {
 function AdminOrdersPage() {
   const { token } = useAuth();
   const { showToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialDateFilter = searchParams.get('date') || '';
+  const initialMonthFilter = searchParams.get('month') || '';
   const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -44,6 +65,9 @@ function AdminOrdersPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [searchKeyword, setSearchKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [dateFilterMode, setDateFilterMode] = useState(initialDateFilter ? 'day' : initialMonthFilter ? 'month' : '');
+  const [dayFilter, setDayFilter] = useState(initialDateFilter);
+  const [monthFilter, setMonthFilter] = useState(initialMonthFilter);
   const [detailOpen, setDetailOpen] = useState(false);
   const [statusValue, setStatusValue] = useState('pending');
   const [isPaidValue, setIsPaidValue] = useState(false);
@@ -58,9 +82,45 @@ function AdminOrdersPage() {
             .some((value) => value.toLowerCase().includes(keyword))
         : true;
       const matchesStatus = statusFilter ? order.status === statusFilter : true;
-      return matchesKeyword && matchesStatus;
+      const orderDay = formatDateInput(order.createdAt);
+      const orderMonth = formatMonthInput(order.createdAt);
+      const matchesDate =
+        dateFilterMode === 'day'
+          ? dayFilter
+            ? orderDay === dayFilter
+            : true
+          : dateFilterMode === 'month'
+            ? monthFilter
+              ? orderMonth === monthFilter
+              : true
+            : true;
+
+      return matchesKeyword && matchesStatus && matchesDate;
     });
-  }, [orders, searchKeyword, statusFilter]);
+  }, [orders, searchKeyword, statusFilter, dateFilterMode, dayFilter, monthFilter]);
+
+  useEffect(() => {
+    const nextParams = {};
+    if (dateFilterMode === 'day' && dayFilter) {
+      nextParams.date = dayFilter;
+    }
+    if (dateFilterMode === 'month' && monthFilter) {
+      nextParams.month = monthFilter;
+    }
+    setSearchParams(nextParams, { replace: true });
+  }, [dateFilterMode, dayFilter, monthFilter, setSearchParams]);
+
+  function handleDateModeChange(value) {
+    setDateFilterMode(value);
+    if (value !== 'day') setDayFilter('');
+    if (value !== 'month') setMonthFilter('');
+  }
+
+  function clearDateFilter() {
+    setDateFilterMode('');
+    setDayFilter('');
+    setMonthFilter('');
+  }
 
   useEffect(() => {
     let isMounted = true;
@@ -137,6 +197,22 @@ function AdminOrdersPage() {
             </option>
           ))}
         </select>
+        <select value={dateFilterMode} onChange={(event) => handleDateModeChange(event.target.value)} className="select-field sm:max-w-xs">
+          <option value="">Không lọc ngày</option>
+          <option value="day">Theo ngày</option>
+          <option value="month">Theo tháng</option>
+        </select>
+        {dateFilterMode === 'day' ? (
+          <input type="date" value={dayFilter} onChange={(event) => setDayFilter(event.target.value)} className="input-field sm:max-w-xs" />
+        ) : null}
+        {dateFilterMode === 'month' ? (
+          <input type="month" value={monthFilter} onChange={(event) => setMonthFilter(event.target.value)} className="input-field sm:max-w-xs" />
+        ) : null}
+        {dateFilterMode ? (
+          <button type="button" onClick={clearDateFilter} className="btn-outline !px-4 !py-3">
+            Xóa lọc ngày
+          </button>
+        ) : null}
       </FilterBar>
 
       {loading ? (

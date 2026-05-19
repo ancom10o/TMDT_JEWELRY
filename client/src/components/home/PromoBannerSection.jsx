@@ -7,8 +7,12 @@ import { IMAGE_ASPECT_CLASSES } from '../../utils/media.js';
 function PromoBannerSection({ section }) {
   const normalizedSection = normalizeSection(section);
   const banner = normalizedSection.banners.find(Boolean);
+  const title = banner?.title || normalizedSection.title;
+  const subtitle = banner?.subtitle || normalizedSection.subtitle;
+  const buttonLabel = banner?.buttonLabel || normalizedSection.buttonLabel;
+  const buttonLink = banner?.buttonLink || normalizedSection.buttonLink || '/products';
 
-  if (!banner && !normalizedSection.title) {
+  if (!banner && !title) {
     return null;
   }
 
@@ -24,19 +28,21 @@ function PromoBannerSection({ section }) {
             <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(15,23,42,0.76)_0%,rgba(15,23,42,0.34)_45%,rgba(15,23,42,0.4)_100%)]" />
           </>
         ) : null}
-        <div className="relative flex h-full items-center p-8 sm:p-10 lg:p-12">
-          <div className="flex min-h-[240px] max-w-2xl flex-col">
-            <p className="eyebrow text-[#f3d77b]">Uu dai</p>
-            <h2 className="mt-4 min-h-[96px] max-w-2xl font-display text-[2.5rem] leading-none text-white sm:min-h-[120px] sm:text-[3rem]">
-              {normalizedSection.title || banner?.title}
+        <div className="relative flex h-full items-center p-6 sm:p-8 lg:p-12">
+          <div className="max-w-[620px] rounded-[28px] border border-white/12 bg-navy/32 p-5 text-white shadow-[0_18px_50px_rgba(15,23,42,0.18)] backdrop-blur-[3px] sm:p-6 lg:p-7">
+            <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[#f3d77b]">Ưu đãi</p>
+            <h2 className="mt-3 max-w-[15ch] font-display text-[2.25rem] leading-[0.95] text-white sm:text-[2.75rem] lg:text-[3.25rem]">
+              {title}
             </h2>
-            <p className="mt-5 min-h-[96px] max-w-2xl text-sm leading-8 text-slate-100">
-              {normalizedSection.subtitle || banner?.subtitle}
-            </p>
-            {(normalizedSection.buttonLabel || banner?.buttonLabel) ? (
-              <div className="mt-auto pt-8">
-                <Link to={normalizedSection.buttonLink || banner?.buttonLink || '/products'} className="btn-secondary">
-                  {normalizedSection.buttonLabel || banner?.buttonLabel}
+            {subtitle ? (
+              <p className="mt-4 max-w-xl text-sm font-medium leading-7 text-slate-100 sm:text-[15px]">
+                {subtitle}
+              </p>
+            ) : null}
+            {buttonLabel ? (
+              <div className="mt-6">
+                <Link to={buttonLink} className="btn-secondary px-6 py-3">
+                  {buttonLabel}
                 </Link>
               </div>
             ) : null}

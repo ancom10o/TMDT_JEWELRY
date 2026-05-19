@@ -8,6 +8,7 @@ import SectionHeader from '../components/SectionHeader.jsx';
 import { getCategoryBannerConfig } from '../utils/categoryBanners.js';
 import { priceRangeOptions } from '../utils/productFilters.js';
 import { useCart } from '../hooks/useCart.js';
+import { useToast } from '../context/ToastContext.jsx';
 import { getCategories, getProducts } from '../services/api.js';
 
 function ProductsPage() {
@@ -18,9 +19,9 @@ function ProductsPage() {
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [searchInput, setSearchInput] = useState(searchParams.get('q') || '');
-  const [feedbackMessage, setFeedbackMessage] = useState('');
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const { addToCart, isSyncing } = useCart();
+  const { showToast } = useToast();
 
   const currentPage = Number(searchParams.get('page') || 1);
   const selectedCategory = searchParams.get('category') || '';
@@ -113,15 +114,6 @@ function ProductsPage() {
     };
   }, [currentPage, maxPrice, minPrice, query, selectedCategory, selectedGender, selectedMaterialGroup, selectedSort]);
 
-  useEffect(() => {
-    if (!feedbackMessage) {
-      return undefined;
-    }
-
-    const timeout = globalThis.setTimeout(() => setFeedbackMessage(''), 2200);
-    return () => globalThis.clearTimeout(timeout);
-  }, [feedbackMessage]);
-
   const selectedCategoryInfo = useMemo(
     () => categories.find((item) => item.slug === selectedCategory) || null,
     [categories, selectedCategory]
@@ -152,10 +144,31 @@ function ProductsPage() {
 
   function handleSearchSubmit(event) {
     event.preventDefault();
-    updateParams({
-      q: searchInput.trim() || null,
-      page: 1
+    const nextParams = new globalThis.URLSearchParams({
+      sort: selectedSort || 'newest',
+      page: '1'
     });
+    const normalizedKeyword = searchInput.trim();
+
+    if (normalizedKeyword) {
+      nextParams.set('q', normalizedKeyword);
+    }
+
+    setSearchParams(nextParams, { replace: true, state: { preserveScroll: true } });
+  }
+
+  function handleSearchInputChange(value) {
+    setSearchInput(value);
+
+    if (!value && query) {
+      setSearchParams(
+        new globalThis.URLSearchParams({
+          sort: selectedSort || 'newest',
+          page: '1'
+        }),
+        { replace: true, state: { preserveScroll: true } }
+      );
+    }
   }
 
   function handleSortChange(value) {
@@ -207,15 +220,28 @@ function ProductsPage() {
   async function handleAddToCart(product) {
     try {
       await addToCart(product, 1);
-      setFeedbackMessage(`Đã thêm "${product.name}" vào giỏ hàng.`);
+      showToast({
+        title: 'Đã thêm vào giỏ hàng',
+        description: product.name,
+        type: 'success'
+      });
     } catch (error) {
-      setFeedbackMessage(error.response?.data?.message || 'Không thể thêm sản phẩm vào giỏ hàng.');
+      const message = error.response?.data?.message || 'Không thể thêm sản phẩm vào giỏ hàng.';
+      showToast({
+        title: 'Không thể thêm vào giỏ hàng',
+        description: message,
+        type: 'error'
+      });
     }
   }
 
   return (
     <section className="container-page py-8 sm:py-10 lg:py-12">
-      <CategoryHeroBanner categorySlug={selectedCategory} categoryName={selectedCategoryInfo?.name || ''} />
+      <CategoryHeroBanner
+        categorySlug={selectedCategory}
+        categoryName={selectedCategoryInfo?.name || ''}
+        categoryImage={selectedCategoryInfo?.image || ''}
+      />
 
       <div className="surface-soft overflow-hidden p-6 shadow-[0_24px_70px_rgba(15,23,42,0.06)] sm:p-8 lg:p-10">
         <SectionHeader
@@ -226,18 +252,12 @@ function ProductsPage() {
         />
       </div>
 
-      {feedbackMessage ? (
-        <div className={`mt-6 ${feedbackMessage.startsWith('Đã thêm') ? 'state-success' : 'state-error'}`}>
-          {feedbackMessage}
-        </div>
-      ) : null}
-
       <div className="mt-8">
         <ProductSortBar
           total={loadingProducts ? 0 : pagination.total || 0}
           selectedSort={selectedSort}
           searchInput={searchInput}
-          onSearchInputChange={setSearchInput}
+          onSearchInputChange={handleSearchInputChange}
           onSearchSubmit={handleSearchSubmit}
           onSortChange={handleSortChange}
           onOpenFilters={() => setMobileFiltersOpen(true)}

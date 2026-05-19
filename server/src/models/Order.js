@@ -12,6 +12,17 @@ const orderItemSchema = new mongoose.Schema(
       required: true,
       trim: true
     },
+    productName: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    sku: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      default: ''
+    },
     image: {
       type: String,
       trim: true,
@@ -25,6 +36,11 @@ const orderItemSchema = new mongoose.Schema(
     price: {
       type: Number,
       required: true,
+      min: 0
+    },
+    costPrice: {
+      type: Number,
+      default: 0,
       min: 0
     },
     selectedSize: {

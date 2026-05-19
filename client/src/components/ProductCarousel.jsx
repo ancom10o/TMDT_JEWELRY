@@ -22,6 +22,10 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
+function isInteractiveElement(target) {
+  return Boolean(target?.closest?.('a, button, input, select, textarea'));
+}
+
 function ProductCarousel({
   products = [],
   mode = 'listing',
@@ -139,6 +143,12 @@ function ProductCarousel({
   }
 
   function handlePointerDown(event) {
+    suppressClickRef.current = false;
+
+    if (isInteractiveElement(event.target)) {
+      return;
+    }
+
     if (resolvedItems.length <= 1) {
       return;
     }
@@ -148,7 +158,6 @@ function ProductCarousel({
     startXRef.current = event.clientX;
     startTranslateRef.current = currentTranslateRef.current;
     isDraggingRef.current = false;
-    suppressClickRef.current = false;
     setIsPointerDown(true);
     setIsDragging(false);
   }
@@ -216,6 +225,7 @@ function ProductCarousel({
     setIsPointerDown(false);
     setIsDragging(false);
     isDraggingRef.current = false;
+    suppressClickRef.current = false;
   }
 
   function handleClickCapture(event) {

@@ -6,20 +6,20 @@ const AUTOPLAY_DELAY = 4000;
 const slides = [
   {
     id: 'new-collection',
-    eyebrow: 'Bo suu tap moi',
-    title: 'Kham pha trang suc moi',
-    description: 'Nhung thiet ke moi len ke duoc chon loc cho phong cach thanh lich moi ngay.',
-    ctaLabel: 'Xem san pham moi',
+    eyebrow: 'Bộ sưu tập mới',
+    title: 'Khám phá trang sức mới',
+    description: 'Những thiết kế mới được chọn lọc cho phong cách thanh lịch mỗi ngày.',
+    ctaLabel: 'Xem sản phẩm mới',
     ctaTo: '/products?sort=newest',
     accent: 'from-[#fff7e6] via-[#fffdf8] to-[#f0dfb2]',
-    stat: 'Moi ra mat'
+    stat: 'Mới ra mắt'
   },
   {
     id: 'wedding-rings',
-    eyebrow: 'Nhan cuoi',
-    title: 'Khoanh khac danh dau',
-    description: 'Nhung mau nhan cuoi toi gian, sang trong va de deo trong nhieu nam.',
-    ctaLabel: 'Xem nhan cuoi',
+    eyebrow: 'Nhẫn cưới',
+    title: 'Khoảnh khắc đánh dấu',
+    description: 'Những mẫu nhẫn cưới tối giản, sang trọng và dễ mặc trong nhiều năm.',
+    ctaLabel: 'Xem nhẫn cưới',
     ctaTo: '/products?category=trang-suc-cuoi',
     accent: 'from-[#f7f2ff] via-white to-[#e6dcf8]',
     stat: 'Wedding edit'
@@ -46,28 +46,28 @@ const slides = [
   },
   {
     id: 'promotion',
-    eyebrow: 'Khuyen mai',
-    title: 'Uu dai theo mua',
-    description: 'Cap nhat cac lua chon duoc quan tam nhieu voi muc gia de mua sam hon.',
-    ctaLabel: 'Xem uu dai',
+    eyebrow: 'Khuyến mãi',
+    title: 'Ưu đãi theo mùa',
+    description: 'Cập nhật các lựa chọn được quan tâm nhiều với mức giá để mua sắm tốt hơn.',
+    ctaLabel: 'Xem ưu đãi',
     ctaTo: '/products?featured=true',
     accent: 'from-[#fff8ea] via-white to-[#f2dfb6]',
-    stat: 'Gia tot hom nay'
+    stat: 'Giá tốt hôm nay'
   },
   {
     id: 'watches',
-    eyebrow: 'Dong ho',
-    title: 'Phong cach thanh lich',
-    description: 'Dong ho thoi trang co tong mau cao cap, phu hop cho cong so va su kien.',
-    ctaLabel: 'Xem dong ho',
+    eyebrow: 'Đồng hồ',
+    title: 'Phong cách thanh lịch',
+    description: 'Đồng hồ thời trang có tổng mẫu cao cấp, phù hợp cho công sở và sự kiện.',
+    ctaLabel: 'Xem đồng hồ',
     ctaTo: '/products?category=dong-ho',
     accent: 'from-[#edf2f6] via-white to-[#dde5ed]',
-    stat: 'Phong cach hien dai'
+    stat: 'Phong cách hiện đại'
   },
   {
     id: 'gold-jewelry',
-    eyebrow: 'Trang suc vang',
-    title: 'Sac vang am',
+    eyebrow: 'Trang suc vàng',
+    title: 'Sắc vang am',
     description: 'Nhung thiet ke vang mang cam giac am ap, de ket hop trong nhieu set do.',
     ctaLabel: 'Xem trang suc vang',
     ctaTo: '/products?category=nhan',
@@ -166,20 +166,20 @@ function HomeHeroCarousel() {
       <div className="rounded-[28px] border border-[#e9deca] bg-[linear-gradient(135deg,_#fffdf8_0%,_#f8f1e6_48%,_#eef2f7_100%)] p-4 shadow-[0_20px_60px_rgba(15,23,42,0.06)] sm:p-5 lg:p-6">
         <div className="mb-5 flex items-end justify-between gap-4">
           <div className="max-w-2xl">
-            <p className="eyebrow">Noi bat hom nay</p>
+            <p className="eyebrow">Nổi bật hôm nay</p>
             <h1 className="mt-2 font-display text-[2.1rem] leading-none text-navy sm:text-[2.6rem] lg:text-[3rem]">
-              Bo suu tap noi bat
+              Bộ sưu tập nổi bật
             </h1>
             <p className="mt-3 text-sm text-slate-600 sm:text-[15px]">
-              Lua chon nhanh nhung nhom trang suc duoc quan tam nhieu nhat.
+              Lựa chọn nhanh những nhóm trang sức được quan tâm nhiều nhất.
             </p>
           </div>
 
           <div className="hidden items-center gap-2 lg:flex">
-            <button type="button" onClick={handlePrev} className="icon-button h-9 w-9 rounded-full px-0" aria-label="Slide truoc">
+            <button type="button" onClick={handlePrev} className="icon-button h-9 w-9 rounded-full px-0" aria-label="Slide trước">
               <span aria-hidden="true">&larr;</span>
             </button>
-            <button type="button" onClick={handleNext} className="icon-button h-9 w-9 rounded-full px-0" aria-label="Slide tiep theo">
+            <button type="button" onClick={handleNext} className="icon-button h-9 w-9 rounded-full px-0" aria-label="Slide tiếp theo">
               <span aria-hidden="true">&rarr;</span>
             </button>
           </div>
@@ -205,12 +205,12 @@ function HomeHeroCarousel() {
                     <div className="mt-4 flex flex-1 flex-col justify-between">
                       <div className="grid grid-cols-2 gap-3">
                         <div className="rounded-[18px] bg-[#fcfaf5] p-4">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Bo suu tap</p>
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Bộ sưu tập</p>
                           <p className="mt-2 font-display text-[1.55rem] leading-none text-navy">{slide.eyebrow}</p>
                         </div>
                         <div className="rounded-[18px] border border-[#eee5d8] bg-white p-4">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Lua chon</p>
-                          <p className="mt-2 font-display text-[1.55rem] leading-none text-navy">Noi bat</p>
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Lựa chọn</p>
+                          <p className="mt-2 font-display text-[1.55rem] leading-none text-navy">Nổi bật</p>
                         </div>
                       </div>
 
@@ -237,17 +237,17 @@ function HomeHeroCarousel() {
                     className={`h-2 rounded-full transition-all duration-300 ${
                       isActive ? 'w-6 bg-navy' : 'w-2 bg-slate-300 hover:bg-slate-400'
                     }`}
-                    aria-label={`Di den nhom slide ${index + 1}`}
+                    aria-label={`Đi đến nhóm slide ${index + 1}`}
                   />
                 );
               })}
             </div>
 
             <div className="flex items-center gap-2 lg:hidden">
-              <button type="button" onClick={handlePrev} className="icon-button h-9 w-9 rounded-full px-0" aria-label="Slide truoc">
+              <button type="button" onClick={handlePrev} className="icon-button h-9 w-9 rounded-full px-0" aria-label="Slide trước">
                 <span aria-hidden="true">&larr;</span>
               </button>
-              <button type="button" onClick={handleNext} className="icon-button h-9 w-9 rounded-full px-0" aria-label="Slide tiep theo">
+              <button type="button" onClick={handleNext} className="icon-button h-9 w-9 rounded-full px-0" aria-label="Slide tiếp theo">
                 <span aria-hidden="true">&rarr;</span>
               </button>
             </div>

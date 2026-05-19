@@ -1,6 +1,6 @@
 /* eslint-disable react/prop-types */
 import { createContext, useCallback, useEffect, useMemo, useState } from 'react';
-import { getCurrentUser, loginUser, registerUser } from '../services/api.js';
+import { getCurrentUser, loginUser, registerUser, updateMyProfile } from '../services/api.js';
 
 const AUTH_STORAGE_KEY = 'jewelaura_token';
 const USER_STORAGE_KEY = 'jewelaura_user';
@@ -127,6 +127,17 @@ export function AuthProvider({ children }) {
     persistAuth('', null);
   }, []);
 
+  const updateProfile = useCallback(async (payload) => {
+    if (!token) {
+      throw new Error('Vui long dang nhap de cap nhat ho so.');
+    }
+
+    const response = await updateMyProfile(payload, token);
+    setUser(response.user);
+    persistAuth(token, response.user);
+    return response;
+  }, [token]);
+
   const clearAuthError = useCallback(() => {
     setAuthError('');
   }, []);
@@ -140,10 +151,11 @@ export function AuthProvider({ children }) {
       authError,
       login,
       register,
+      updateProfile,
       logout,
       clearAuthError
     }),
-    [token, user, isLoading, authError, login, register, logout, clearAuthError]
+    [token, user, isLoading, authError, login, register, updateProfile, logout, clearAuthError]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

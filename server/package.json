@@ -8,7 +8,8 @@
     "dev": "nodemon server.js",
     "start": "node server.js",
     "seed": "node src/seeders/seed.js",
-    "seed:destroy": "node src/seeders/seed.js --destroy"
+    "seed:destroy": "node src/seeders/seed.js --destroy",
+    "search:reindex": "node src/scripts/reindexProductSearch.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

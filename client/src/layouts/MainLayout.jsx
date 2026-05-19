@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import Footer from '../components/Footer.jsx';
+import FloatingContactButtons from '../components/common/FloatingContactButtons.jsx';
 import Header from '../components/Header.jsx';
 
 function MainLayout() {
@@ -9,6 +10,7 @@ function MainLayout() {
       <main className="relative flex-1">
         <Outlet />
       </main>
+      <FloatingContactButtons />
       <Footer />
     </div>
   );

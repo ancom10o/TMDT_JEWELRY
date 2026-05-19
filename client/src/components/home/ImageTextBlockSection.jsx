@@ -28,7 +28,7 @@ function ImageTextBlockSection({ section }) {
         </div>
 
         <article className={imageFirst ? 'lg:order-2' : 'lg:order-1'}>
-          <p className="eyebrow">Bo suu tap</p>
+          <p className="eyebrow">Bộ sưu tập</p>
           <h2 className="mt-4 font-display text-[2.5rem] leading-none text-navy sm:text-[2.9rem]">{normalizedSection.title}</h2>
           {normalizedSection.subtitle ? <p className="mt-4 text-sm font-semibold uppercase tracking-[0.14em] text-gold">{normalizedSection.subtitle}</p> : null}
           <p className="mt-5 max-w-xl text-sm leading-8 text-slate-600">{normalizedSection.description || mediaItem?.description}</p>

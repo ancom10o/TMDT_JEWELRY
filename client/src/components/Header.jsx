@@ -5,13 +5,14 @@ import { useAuth } from '../hooks/useAuth.js';
 import { useCart } from '../hooks/useCart.js';
 
 const categoryItems = [
-  { label: 'Nhan', path: '/products?category=nhan' },
-  { label: 'Bong tai', path: '/products?category=bong-tai' },
-  { label: 'Day chuyen', path: '/products?category=day-chuyen' },
-  { label: 'Lac tay', path: '/products?category=lac-tay' },
-  { label: 'Vong co', path: '/products?category=vong-co' },
-  { label: 'Trang suc cuoi', path: '/products?category=trang-suc-cuoi' },
-  { label: 'Dong ho', path: '/products?category=dong-ho' }
+  { label: 'Nhẫn', path: '/products?category=nhan' },
+  { label: 'Bông tai', path: '/products?category=bong-tai' },
+  { label: 'Dây chuyền', path: '/products?category=day-chuyen' },
+  { label: 'Lắc tay', path: '/products?category=lac-tay' },
+  { label: 'Lắc chân', path: '/products?category=lac-chan' },
+  { label: 'Trang sức cưới', path: '/products?category=trang-suc-cuoi' },
+  { label: 'Đồng hồ', path: '/products?category=dong-ho' },
+  { label: 'Tất cả sản phẩm', path: '/products' }
 ];
 
 function SearchIcon() {
@@ -140,8 +141,8 @@ function Header() {
       <div className="border-b border-slate-100 bg-navy text-[11px] text-white/85">
         <div className="container-page flex min-h-8 items-center justify-center gap-2 py-0.5 text-center sm:justify-between sm:text-left">
           <p className="font-medium">Hotline: 1900 6868</p>
-          <p className="hidden md:block">Mien phi giao hang cho don tu 1.000.000d</p>
-          <p className="hidden lg:block">Doi size trong 7 ngay voi san pham du dieu kien</p>
+          <p className="hidden md:block">Miễn phí giao hàng cho đơn từ 1.000.000d</p>
+          <p className="hidden lg:block">Đổi size trong 7 ngày với sản phẩm đủ điều kiện</p>
         </div>
       </div>
 
@@ -153,13 +154,13 @@ function Header() {
             </span>
             <span className="min-w-0">
               <span className="block truncate text-[14px] font-bold tracking-[0.14em] text-navy sm:text-[15px]">JewelAura</span>
-              <span className="hidden text-[9px] uppercase tracking-[0.22em] text-gold/90 lg:block">Toa sang theo cach cua ban</span>
+              <span className="hidden text-[9px] uppercase tracking-[0.22em] text-gold/90 lg:block">Tỏa sáng theo cách của bạn</span>
             </span>
           </Link>
 
           <form className="hidden min-w-0 flex-1 justify-center px-2 md:flex lg:px-4" onSubmit={handleSearchSubmit}>
             <label className="sr-only" htmlFor="site-search">
-              Tim kiem san pham
+              Tìm kiếm sản phẩm
             </label>
             <div className="flex h-11 w-full max-w-[420px] overflow-hidden rounded-full border border-[#d9e2ec] bg-white shadow-[0_8px_20px_rgba(15,23,42,0.045)] transition focus-within:border-gold focus-within:ring-4 focus-within:ring-gold/10 xl:max-w-[500px]">
               <span className="flex items-center pl-3 text-slate-400">
@@ -170,11 +171,11 @@ function Header() {
                 type="search"
                 value={searchKeyword}
                 onChange={(event) => setSearchKeyword(event.target.value)}
-                placeholder="Tim nhan, bong tai, day chuyen..."
+                placeholder="Tìm nhẫn, bông tai, dây chuyền..."
                 className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-navy outline-none placeholder:text-slate-400"
               />
               <button type="submit" className="my-1 mr-1 inline-flex items-center rounded-full bg-navy px-4 text-sm font-semibold text-white transition hover:bg-slate-800" aria-label="Tim kiem">
-                Tim
+                Tìm
               </button>
             </div>
           </form>
@@ -202,21 +203,21 @@ function Header() {
                     </div>
                     <div className="mt-2 flex flex-col gap-1">
                       <Link to="/profile" className="rounded-2xl px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-cream hover:text-navy">
-                        Ho so cua toi
+                        Hồ sơ của tôi
                       </Link>
                       <Link to="/wishlist" className="rounded-2xl px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-cream hover:text-navy">
-                        San pham yeu thich
+                        Sản phẩm yêu thích
                       </Link>
                       <Link to="/my-orders" className="rounded-2xl px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-cream hover:text-navy">
-                        Don hang cua toi
+                        Đơn hàng của tôi
                       </Link>
                       {user?.role === 'admin' ? (
                         <Link to="/admin" className="rounded-2xl px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-cream hover:text-navy">
-                          Khu vuc quan tri
+                          Khu vực quản trị
                         </Link>
                       ) : null}
                       <button type="button" className="rounded-2xl px-3 py-2.5 text-left text-sm font-medium text-red-600 transition hover:bg-red-50" onClick={handleLogout}>
-                        Dang xuat
+                        Đăng xuất
                       </button>
                     </div>
                   </div>
@@ -225,17 +226,17 @@ function Header() {
             ) : (
               <div className="hidden items-center gap-1.5 md:flex">
                 <Link to="/login" className="btn-ghost h-10 px-3 py-2" onClick={closeMenu}>
-                  Dang nhap
+                  Đăng nhập
                 </Link>
                 <Link to="/register" className="btn-outline h-10 px-4 py-2" onClick={closeMenu}>
-                  Dang ky
+                  Đăng ký
                 </Link>
               </div>
             )}
 
             <Link to="/cart" className="icon-button relative h-10 gap-2 px-3 whitespace-nowrap sm:px-3.5" aria-label="Gio hang" onClick={closeMenu}>
               <CartIcon />
-              <span className="hidden whitespace-nowrap text-sm font-semibold lg:inline">Gio hang</span>
+              <span className="hidden whitespace-nowrap text-sm font-semibold lg:inline">Giỏ hàng</span>
               <span className="pointer-events-none absolute right-0 top-0 flex h-5 min-w-5 -translate-y-1/4 translate-x-1/4 items-center justify-center rounded-full bg-gold px-1 text-[11px] font-bold leading-none text-navy">
                 {totalQuantity}
               </span>
@@ -250,7 +251,7 @@ function Header() {
         <div className="pb-2 md:hidden">
           <form onSubmit={handleSearchSubmit}>
             <label className="sr-only" htmlFor="mobile-search">
-              Tim kiem san pham
+              Tìm kiếm sản phẩm
             </label>
             <div className="flex h-11 overflow-hidden rounded-full border border-[#d9e2ec] bg-white shadow-[0_8px_20px_rgba(15,23,42,0.045)]">
               <span className="flex items-center pl-3 text-slate-400">
@@ -261,16 +262,15 @@ function Header() {
                 type="search"
                 value={searchKeyword}
                 onChange={(event) => setSearchKeyword(event.target.value)}
-                placeholder="Tim san pham..."
+                placeholder="Tìm sản phẩm..."
                 className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-slate-400"
               />
               <button type="submit" className="my-1 mr-1 inline-flex items-center rounded-full bg-navy px-4 text-sm font-semibold text-white" aria-label="Tim kiem">
-                Tim
+                Tìm
               </button>
             </div>
           </form>
         </div>
-
         <nav className={`${isMenuOpen ? 'block' : 'hidden'} border-t border-slate-100 pb-2.5 pt-2 md:block md:pb-2`} aria-label="Danh muc san pham">
           {isAuthenticated ? (
             <div className="mb-3 rounded-[24px] border border-slate-200 bg-[#fffaf0] p-4 md:hidden">
@@ -278,31 +278,31 @@ function Header() {
               <p className="mt-1 text-xs text-slate-500">{user?.email}</p>
               <div className="mt-3 flex flex-col gap-1.5">
                 <Link to="/profile" className="rounded-2xl px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-white" onClick={closeMenu}>
-                  Ho so cua toi
+                  Hồ sơ của tôi
                 </Link>
                 <Link to="/wishlist" className="rounded-2xl px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-white" onClick={closeMenu}>
-                  San pham yeu thich
+                  Sản phẩm yêu thích
                 </Link>
                 <Link to="/my-orders" className="rounded-2xl px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-white" onClick={closeMenu}>
-                  Don hang cua toi
+                  Đơn hàng của tôi
                 </Link>
                 {user?.role === 'admin' ? (
                   <Link to="/admin" className="rounded-2xl px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-white" onClick={closeMenu}>
-                    Khu vuc quan tri
+                    Khu vực quản trị
                   </Link>
                 ) : null}
                 <button type="button" className="rounded-2xl px-3 py-2 text-left text-sm font-medium text-red-600 transition hover:bg-red-50" onClick={handleLogout}>
-                  Dang xuat
+                  Đăng xuất
                 </button>
               </div>
             </div>
           ) : (
             <div className="mb-3 flex gap-2 md:hidden">
               <Link to="/login" onClick={closeMenu} className="flex-1 rounded-full border border-slate-300 px-4 py-2.5 text-center text-sm font-semibold text-navy">
-                Dang nhap
+                Đăng nhập
               </Link>
               <Link to="/register" onClick={closeMenu} className="flex-1 rounded-full bg-navy px-4 py-2.5 text-center text-sm font-semibold text-white">
-                Dang ky
+                Đăng ký
               </Link>
             </div>
           )}

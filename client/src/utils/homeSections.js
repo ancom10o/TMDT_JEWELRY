@@ -2,37 +2,37 @@ export const sectionTypeOptions = [
   {
     value: 'hero_banner',
     label: 'Hero banner',
-    description: 'Banner dau trang, co the dung slider nhieu banner.'
+    description: 'Banner đầu trang, có thể dùng slider nhiều banner.'
   },
   {
     value: 'category_grid',
-    label: 'Grid danh muc',
-    description: 'Luoi danh muc voi items thu cong, khong can san pham hay banner.'
+    label: 'Grid danh mục',
+    description: 'Lưới danh mục với items thủ công.'
   },
   {
     value: 'product_slider',
-    label: 'Slider san pham',
-    description: 'Hien thi san pham dang carousel/slider.'
+    label: 'Slider sản phẩm',
+    description: 'Hiển thị sản phẩm dạng slider.'
   },
   {
     value: 'image_text_block',
     label: 'Image + text block',
-    description: 'Khoi noi dung 1 anh + text + button, hop cho bo suu tap hay editorial.'
+    description: 'Khối nội dung 1 ảnh + text + button.'
   },
   {
     value: 'promo_banner',
     label: 'Promo banner',
-    description: 'Banner khuyen mai hoac CTA giua trang.'
+    description: 'Banner khuyến mãi giữa trang.'
   },
   {
     value: 'service_grid',
-    label: 'Grid dich vu',
-    description: 'Luoi cac diem dich vu nhu bao hanh, giao hang, doi size.'
+    label: 'Grid dịch vụ',
+    description: 'Lưới các điểm dịch vụ như bảo hành, giao hàng, đổi size.'
   },
   {
     value: 'collection_cards',
-    label: 'The bo suu tap',
-    description: 'Danh sach card bo suu tap voi anh, text va link.'
+    label: 'Thế giới sưu tập',
+    description: 'Danh sách card thế giới sưu tập với ảnh, text và link.'
   }
 ];
 

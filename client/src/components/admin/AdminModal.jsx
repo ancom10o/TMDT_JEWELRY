@@ -13,7 +13,7 @@ function AdminModal({ open, title, description, children, onClose, width = 'max-
             {description ? <p className="mt-1 text-sm text-slate-600">{description}</p> : null}
           </div>
           <button type="button" onClick={onClose} className="btn-ghost">
-            Dong
+            Đóng
           </button>
         </div>
         <div className="max-h-[calc(92vh-88px)] overflow-y-auto px-6 py-6">{children}</div>

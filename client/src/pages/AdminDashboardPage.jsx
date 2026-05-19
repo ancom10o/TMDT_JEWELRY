@@ -1,10 +1,11 @@
 /* eslint-disable react/prop-types */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import AdminModal from '../components/admin/AdminModal.jsx';
+import { Link, useNavigate } from 'react-router-dom';
 import DataTable from '../components/admin/DataTable.jsx';
 import StatusBadge from '../components/admin/StatusBadge.jsx';
 import { useAuth } from '../hooks/useAuth.js';
-import { getAdminDashboard, getCoupons, getPublicAssetUrl } from '../services/api.js';
+import { downloadMonthlyRevenueExcel, getAdminDashboard, getCoupons, getPublicAssetUrl } from '../services/api.js';
 import { formatCurrency } from '../utils/format.js';
 
 function formatDateTime(value) {
@@ -26,6 +27,15 @@ function formatDate(value) {
     month: '2-digit',
     year: 'numeric'
   }).format(new Date(value));
+}
+
+function formatDateQuery(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function getOrderTone(status) {
@@ -94,12 +104,156 @@ function ViewAllLink({ to, label = 'Xem tất cả' }) {
   );
 }
 
+function formatShortCurrency(value) {
+  const safeValue = Number(value || 0);
+
+  if (safeValue === 0) return '0';
+  if (safeValue >= 1000000000) return `${Math.round(safeValue / 100000000) / 10}B`;
+  if (safeValue >= 1000000) return `${Math.round(safeValue / 100000) / 10}M`;
+  if (safeValue >= 1000) return `${Math.round(safeValue / 100) / 10}K`;
+  return String(safeValue);
+}
+
+function RevenueChart({ data = [], selectedMonth, onSelectMonth }) {
+  const maxRevenue = Math.max(...data.map((item) => item.revenue || 0), 1);
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] p-4">
+        <div className="flex h-[230px] items-end gap-2 overflow-x-auto pb-2">
+        {data.map((item) => {
+          const hasRevenue = item.revenue > 0;
+          const height = hasRevenue ? Math.max(18, Math.round(((item.revenue || 0) / maxRevenue) * 150)) : 8;
+          const isSelected = item.month === selectedMonth;
+
+          return (
+            <div key={item.month} className="flex min-w-[54px] flex-1 flex-col items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onSelectMonth(item.month)}
+                className={`group flex h-[190px] w-full items-end rounded-2xl border px-2 pb-2 transition ${
+                  isSelected ? 'border-gold bg-white shadow-[0_14px_30px_rgba(212,175,55,0.18)]' : 'border-transparent bg-white/60 hover:border-slate-200 hover:bg-white'
+                }`}
+                title={`Tháng ${item.month}: ${formatCurrency(item.revenue || 0)}`}
+              >
+                <div
+                  className={`relative w-full rounded-t-xl transition ${isSelected ? 'bg-gold' : hasRevenue ? 'bg-navy/75 group-hover:bg-navy' : 'bg-slate-300'}`}
+                  style={{ height: `${height}px` }}
+                >
+                  <span className={`absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                    isSelected ? 'bg-gold/15 text-navy' : 'bg-white text-slate-600 shadow-sm'
+                  }`}>
+                    {formatShortCurrency(item.revenue)}
+                  </span>
+                </div>
+              </button>
+              <span className={`text-xs font-semibold ${isSelected ? 'text-navy' : 'text-slate-500'}`}>T{item.month}</span>
+            </div>
+          );
+        })}
+        </div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-2xl bg-slate-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Cao nhất</p>
+          <p className="mt-2 text-lg font-bold text-navy">{formatCurrency(maxRevenue === 1 ? 0 : maxRevenue)}</p>
+        </div>
+        <div className="rounded-2xl bg-slate-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Tổng năm</p>
+          <p className="mt-2 text-lg font-bold text-navy">{formatCurrency(data.reduce((sum, item) => sum + (item.revenue || 0), 0))}</p>
+        </div>
+        <div className="rounded-2xl bg-slate-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Đơn hoàn tất</p>
+          <p className="mt-2 text-lg font-bold text-navy">{data.reduce((sum, item) => sum + (item.orders || 0), 0)}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DailyRevenueChart({ month, data = [], selectedDay, onSelectDay, onOpenDayOrders }) {
+  const maxRevenue = Math.max(...data.map((item) => item.revenue || 0), 1);
+  const totalRevenue = data.reduce((sum, item) => sum + (item.revenue || 0), 0);
+  const totalOrders = data.reduce((sum, item) => sum + (item.orders || 0), 0);
+  const selectedMetric = data.find((item) => item.day === selectedDay) || data[0] || { day: 1, revenue: 0, orders: 0 };
+
+  return (
+    <div className="rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h4 className="text-lg font-bold text-navy">Doanh thu theo ngày - Tháng {month}</h4>
+          <p className="mt-1 text-sm text-slate-500">Click để xem nhanh số đơn, double click để lọc đơn hàng theo ngày.</p>
+        </div>
+        <div className="grid gap-2 text-sm sm:grid-cols-2">
+          <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Ngày {selectedMetric.day}</p>
+            <p className="mt-1 font-bold text-navy">{formatCurrency(selectedMetric.revenue || 0)}</p>
+            <p className="text-xs text-slate-500">{selectedMetric.orders || 0} đơn</p>
+          </div>
+          <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Tổng tháng</p>
+            <p className="mt-1 font-bold text-navy">{formatCurrency(totalRevenue)}</p>
+            <p className="text-xs text-slate-500">{totalOrders} đơn</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 flex h-[220px] items-end gap-1.5 overflow-x-auto pb-2">
+        {data.map((item) => {
+          const hasRevenue = item.revenue > 0;
+          const height = hasRevenue ? Math.max(16, Math.round(((item.revenue || 0) / maxRevenue) * 145)) : 7;
+          const isSelected = item.day === selectedDay;
+
+          return (
+            <div key={item.day} className="flex min-w-[34px] flex-1 flex-col items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onSelectDay(item.day)}
+                onDoubleClick={() => onOpenDayOrders(item.day)}
+                className={`group flex h-[178px] w-full items-end rounded-xl border px-1.5 pb-1.5 transition ${
+                  isSelected ? 'border-navy/30 bg-white shadow-[0_12px_26px_rgba(15,23,42,0.12)]' : 'border-transparent bg-white/60 hover:border-slate-200 hover:bg-white'
+                }`}
+                title={`Ngày ${item.day}: ${formatCurrency(item.revenue || 0)} · ${item.orders || 0} đơn. Double click để xem đơn hàng.`}
+              >
+                <div
+                  className={`relative w-full rounded-t-lg transition ${isSelected ? 'bg-navy' : hasRevenue ? 'bg-gold/85 group-hover:bg-gold' : 'bg-slate-300'}`}
+                  style={{ height: `${height}px` }}
+                >
+                  {item.revenue > 0 ? (
+                    <span className="absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-white px-1.5 py-0.5 text-[9px] font-bold text-navy shadow-sm">
+                      {formatShortCurrency(item.revenue)}
+                    </span>
+                  ) : null}
+                </div>
+              </button>
+              <span className={`text-[11px] font-semibold ${isSelected ? 'text-navy' : 'text-slate-500'}`}>{item.day}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function AdminDashboardPage() {
   const { token } = useAuth();
+  const navigate = useNavigate();
   const [dashboard, setDashboard] = useState(null);
   const [coupons, setCoupons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [exportingRevenue, setExportingRevenue] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportMode, setExportMode] = useState('month');
+  const currentDate = new Date();
+  const [exportMonth, setExportMonth] = useState(currentDate.getMonth() + 1);
+  const [exportYear, setExportYear] = useState(currentDate.getFullYear());
+  const currentDateInput = currentDate.toISOString().slice(0, 10);
+  const [exportFromDate, setExportFromDate] = useState(currentDateInput);
+  const [exportToDate, setExportToDate] = useState(currentDateInput);
+  const [chartYear, setChartYear] = useState(currentDate.getFullYear());
+  const [selectedRevenueMonth, setSelectedRevenueMonth] = useState(currentDate.getMonth() + 1);
+  const [selectedRevenueDay, setSelectedRevenueDay] = useState(currentDate.getDate());
   const [lastUpdated, setLastUpdated] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -114,7 +268,7 @@ function AdminDashboardPage() {
         setErrorMessage('');
 
         const [dashboardResponse, couponsResponse] = await Promise.all([
-          getAdminDashboard(token),
+          getAdminDashboard(token, { year: chartYear }),
           getCoupons(token).catch(() => ({ coupons: [] }))
         ]);
 
@@ -128,7 +282,7 @@ function AdminDashboardPage() {
         setRefreshing(false);
       }
     },
-    [token]
+    [chartYear, token]
   );
 
   useEffect(() => {
@@ -139,7 +293,7 @@ function AdminDashboardPage() {
         setLoading(true);
         setErrorMessage('');
         const [dashboardResponse, couponsResponse] = await Promise.all([
-          getAdminDashboard(token),
+          getAdminDashboard(token, { year: chartYear }),
           getCoupons(token).catch(() => ({ coupons: [] }))
         ]);
 
@@ -164,7 +318,7 @@ function AdminDashboardPage() {
     return () => {
       isMounted = false;
     };
-  }, [token]);
+  }, [chartYear, token]);
 
   const expiringCoupons = useMemo(() => {
     const now = Date.now();
@@ -181,6 +335,45 @@ function AdminDashboardPage() {
       .slice(0, 4);
   }, [dashboard?.lowStockProducts]);
 
+  const selectedDailyRevenue = useMemo(() => {
+    return dashboard?.revenueByDay?.find((item) => item.month === selectedRevenueMonth)?.days || [];
+  }, [dashboard?.revenueByDay, selectedRevenueMonth]);
+
+  function handleSelectRevenueMonth(month) {
+    setSelectedRevenueMonth(month);
+    setSelectedRevenueDay(1);
+  }
+
+  function openOrdersByRevenueDay(day) {
+    const date = `${chartYear}-${String(selectedRevenueMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    navigate(`/admin/orders?date=${date}`);
+  }
+
+  async function handleExportRevenue() {
+    try {
+      setExportingRevenue(true);
+      const month = Number(exportMonth);
+      const year = Number(exportYear);
+      const payload = exportMode === 'range'
+        ? { fromDate: exportFromDate, toDate: exportToDate }
+        : { year, month };
+      const blob = await downloadMonthlyRevenueExcel(payload, token);
+      const url = globalThis.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = exportMode === 'range'
+        ? `revenue-${exportFromDate}-to-${exportToDate || exportFromDate}.xlsx`
+        : `revenue-${year}-${String(month).padStart(2, '0')}.xlsx`;
+      link.click();
+      globalThis.URL.revokeObjectURL(url);
+      setExportModalOpen(false);
+    } catch (error) {
+      setErrorMessage(error.response?.data?.message || 'Khong the export doanh thu thang.');
+    } finally {
+      setExportingRevenue(false);
+    }
+  }
+
   const lowStockCount = dashboard?.lowStockProducts?.length ?? 0;
   const stats = [
     {
@@ -192,44 +385,29 @@ function AdminDashboardPage() {
       to: '/admin/products'
     },
     {
-      label: 'Tổng đơn hàng',
-      value: dashboard?.stats?.totalOrders ?? 0,
-      note: 'Tất cả đơn đã phát sinh',
-      icon: 'order',
-      accent: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
-      to: '/admin/orders'
-    },
-    {
       label: 'Tổng người dùng',
       value: dashboard?.stats?.totalUsers ?? 0,
-      note: 'Bao gồm user và admin',
+      note: 'User đã đăng ký tài khoản',
       icon: 'user',
       accent: 'bg-slate-100 text-navy ring-slate-200',
       to: '/admin/users'
     },
     {
       label: 'Doanh thu',
-      value: formatCurrency(dashboard?.stats?.revenue ?? 0),
-      note: 'Không tính đơn đã hủy',
+      value: formatCurrency(dashboard?.stats?.monthlyRevenue ?? dashboard?.stats?.revenue ?? 0),
+      note: 'Doanh thu tháng này từ đơn đã hoàn thành',
       icon: 'revenue',
       accent: 'bg-gold/10 text-[#9a761e] ring-gold/20',
+      to: '/admin/orders',
+      wide: true
+    },
+    {
+      label: 'Đơn hàng tháng này',
+      value: dashboard?.stats?.monthlyOrders ?? 0,
+      note: 'Tất cả đơn phát sinh trong tháng này',
+      icon: 'order',
+      accent: 'bg-indigo-50 text-indigo-700 ring-indigo-100',
       to: '/admin/orders'
-    },
-    {
-      label: 'Mã giảm giá hoạt động',
-      value: dashboard?.stats?.activeCoupons ?? 0,
-      note: 'Đang bật và còn hạn',
-      icon: 'coupon',
-      accent: 'bg-amber-50 text-amber-700 ring-amber-100',
-      to: '/admin/coupons'
-    },
-    {
-      label: 'Sản phẩm sắp hết hàng',
-      value: lowStockCount,
-      note: 'Tồn kho từ 10 sản phẩm trở xuống',
-      icon: 'warning',
-      accent: 'bg-red-50 text-red-700 ring-red-100',
-      to: '/admin/products'
     }
   ];
 
@@ -241,7 +419,7 @@ function AdminDashboardPage() {
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-gold">Tổng quan</p>
             <h2 className="mt-2 text-3xl font-bold text-navy sm:text-4xl">Tổng quan quản trị</h2>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-              Theo dõi nhanh sức khỏe vận hành ecommerce: doanh thu, đơn hàng, tồn kho, người dùng và khuyến mãi.
+              Theo dõi nhanh: doanh thu, đơn hàng, tồn kho, người dùng và khuyến mãi.
             </p>
           </div>
 
@@ -252,18 +430,21 @@ function AdminDashboardPage() {
             <button type="button" onClick={() => loadDashboard({ silent: true })} disabled={loading || refreshing} className="btn-secondary">
               {refreshing ? 'Đang làm mới...' : 'Làm mới dữ liệu'}
             </button>
+            <button type="button" onClick={() => setExportModalOpen(true)} className="btn-outline">
+              Export Excel
+            </button>
           </div>
         </div>
       </div>
 
       {errorMessage ? <div className="state-error">{errorMessage}</div> : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {stats.map((item) => (
           <Link
             key={item.label}
             to={item.to}
-            className="group rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_16px_45px_rgba(15,23,42,0.045)] transition hover:-translate-y-1 hover:border-gold/50 hover:shadow-[0_22px_60px_rgba(15,23,42,0.08)]"
+            className={`group rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_16px_45px_rgba(15,23,42,0.045)] transition hover:-translate-y-1 hover:border-gold/50 hover:shadow-[0_22px_60px_rgba(15,23,42,0.08)] ${item.wide ? 'sm:col-span-2 xl:col-span-2' : ''}`}
           >
             <div className="flex items-start justify-between gap-3">
               <p className="text-sm font-semibold text-slate-600">{item.label}</p>
@@ -271,7 +452,9 @@ function AdminDashboardPage() {
                 <DashboardIcon type={item.icon} />
               </span>
             </div>
-            <p className="mt-5 break-words text-3xl font-extrabold tracking-tight text-navy">{loading ? '--' : item.value}</p>
+            <p className={`${item.wide ? 'text-[1.85rem] sm:text-4xl' : 'text-3xl'} mt-5 break-words font-extrabold tracking-tight text-navy`}>
+              {loading ? '--' : item.value}
+            </p>
             <p className="mt-3 text-sm leading-6 text-slate-500">{item.note}</p>
             <p className="mt-4 text-xs font-bold uppercase tracking-[0.16em] text-gold opacity-0 transition group-hover:opacity-100">
               Mở trang quản lý
@@ -279,6 +462,43 @@ function AdminDashboardPage() {
           </Link>
         ))}
       </div>
+
+      <SectionCard
+        title="Biểu đồ doanh thu tháng năm"
+        description="Bấm vào một cột tháng để xem doanh thu từng ngày trong tháng đó."
+        action={
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-slate-500">Năm</span>
+            <input
+              type="number"
+              min="2020"
+              max="2100"
+              value={chartYear}
+              onChange={(event) => setChartYear(Number(event.target.value) || currentDate.getFullYear())}
+              className="input-field !w-24"
+            />
+          </div>
+        }
+      >
+        {loading ? (
+          <div className="skeleton-block h-72" />
+        ) : (
+          <div className="space-y-5">
+            <RevenueChart
+              data={dashboard?.revenueByMonth || []}
+              selectedMonth={selectedRevenueMonth}
+              onSelectMonth={handleSelectRevenueMonth}
+            />
+            <DailyRevenueChart
+              month={selectedRevenueMonth}
+              data={selectedDailyRevenue}
+              selectedDay={selectedRevenueDay}
+              onSelectDay={setSelectedRevenueDay}
+              onOpenDayOrders={openOrdersByRevenueDay}
+            />
+          </div>
+        )}
+      </SectionCard>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.75fr)]">
         <SectionCard title="Đơn hàng mới nhất" description="Theo dõi các đơn vừa phát sinh để xử lý nhanh." action={<ViewAllLink to="/admin/orders" />}>
@@ -300,7 +520,7 @@ function AdminDashboardPage() {
                 { key: 'date', label: 'Ngày tạo' }
               ]}
             >
-              {dashboard.recentOrders.map((order) => (
+              {dashboard.recentOrders.slice(0, 3).map((order) => (
                 <tr key={order._id} className="border-t border-slate-100 transition hover:bg-slate-50/70">
                   <td className="px-5 py-4 font-semibold text-navy">
                     <Link to="/admin/orders" className="transition hover:text-gold">
@@ -315,7 +535,15 @@ function AdminDashboardPage() {
                   <td className="px-5 py-4">
                     <StatusBadge label={order.status} tone={getOrderTone(order.status)} />
                   </td>
-                  <td className="px-5 py-4 text-slate-500">{formatDateTime(order.createdAt)}</td>
+                  <td
+                    className="cursor-pointer px-5 py-4 text-slate-500 transition hover:text-gold"
+                    title="Click đúp để lọc đơn hàng theo ngày này"
+                    onDoubleClick={() => navigate(`/admin/orders?date=${formatDateQuery(order.createdAt)}`)}
+                  >
+                    <span className="select-none">
+                      {formatDateTime(order.createdAt)}
+                    </span>
+                  </td>
                 </tr>
               ))}
             </DataTable>
@@ -445,6 +673,85 @@ function AdminDashboardPage() {
           </div>
         </SectionCard>
       </div>
+
+      <AdminModal
+        open={exportModalOpen}
+        title="Export Excel doanh thu"
+        description="Chọn xuất theo tháng/năm hoặc theo khoảng ngày cần xem."
+        onClose={() => setExportModalOpen(false)}
+        width="max-w-2xl"
+      >
+        <div className="space-y-5">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => setExportMode('month')}
+              className={`rounded-2xl border px-4 py-3 text-left transition ${
+                exportMode === 'month' ? 'border-gold bg-gold/10 text-navy' : 'border-slate-200 bg-white text-slate-600 hover:border-gold/50'
+              }`}
+            >
+              <span className="block font-bold">Theo tháng</span>
+              <span className="mt-1 block text-sm">Chọn tháng và năm.</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setExportMode('range')}
+              className={`rounded-2xl border px-4 py-3 text-left transition ${
+                exportMode === 'range' ? 'border-gold bg-gold/10 text-navy' : 'border-slate-200 bg-white text-slate-600 hover:border-gold/50'
+              }`}
+            >
+              <span className="block font-bold">Theo khoảng ngày</span>
+              <span className="mt-1 block text-sm">Chọn từ ngày đến ngày.</span>
+            </button>
+          </div>
+
+          {exportMode === 'month' ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label>
+                <span className="field-label">Tháng</span>
+                <select value={exportMonth} onChange={(event) => setExportMonth(Number(event.target.value))} className="select-field">
+                  {Array.from({ length: 12 }).map((_, index) => (
+                    <option key={index + 1} value={index + 1}>
+                      Tháng {index + 1}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span className="field-label">Năm</span>
+                <input
+                  type="number"
+                  min="2020"
+                  max="2100"
+                  value={exportYear}
+                  onChange={(event) => setExportYear(Number(event.target.value) || currentDate.getFullYear())}
+                  className="input-field"
+                />
+              </label>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label>
+                <span className="field-label">Từ ngày</span>
+                <input type="date" value={exportFromDate} onChange={(event) => setExportFromDate(event.target.value)} className="input-field" />
+              </label>
+              <label>
+                <span className="field-label">Đến ngày</span>
+                <input type="date" value={exportToDate} onChange={(event) => setExportToDate(event.target.value)} className="input-field" />
+              </label>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3">
+            <button type="button" onClick={() => setExportModalOpen(false)} className="btn-outline">
+              Hủy
+            </button>
+            <button type="button" onClick={handleExportRevenue} disabled={exportingRevenue} className="btn-secondary">
+              {exportingRevenue ? 'Đang export...' : 'Tải Excel'}
+            </button>
+          </div>
+        </div>
+      </AdminModal>
     </section>
   );
 }

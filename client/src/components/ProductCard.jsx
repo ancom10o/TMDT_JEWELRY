@@ -8,7 +8,9 @@ import PriceDisplay from './PriceDisplay.jsx';
 function ProductCard({ product, mode = 'listing', onAddToCart, isSyncing = false }) {
   const [imageFailed, setImageFailed] = useState(false);
   const imageUrl = getPublicAssetUrl(product.images?.[0]);
-  const badgeLabel = product.discount > 0 ? `-${product.discount}%` : product.isNew ? 'Moi' : product.sold > 30 ? 'Ban chay' : '';
+  const comparePrice = product.originalPrice || product.oldPrice || 0;
+  const discountPercent = product.discountPercent || (comparePrice > product.price ? Math.round(((comparePrice - product.price) / comparePrice) * 100) : 0);
+  const badgeLabel = discountPercent > 0 ? `-${discountPercent}%` : product.isNew ? 'Mới' : product.sold > 30 ? 'Bán chạy' : '';
   const compact = mode === 'compact';
   const materialLabel = getProductMaterialLabel(product);
   const genderLabel = getGenderLabel(product.gender);
@@ -48,28 +50,28 @@ function ProductCard({ product, mode = 'listing', onAddToCart, isSyncing = false
       <div className={`flex h-full flex-1 flex-col ${compact ? 'p-3.5' : 'p-4'}`}>
         <div className="min-h-[16px]">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-            {product.category?.name || 'Trang suc'}
+            {product.category?.name || 'Trang sức'}
           </p>
         </div>
 
-        <div className="mt-2 min-h-[46px]">
-          <h3 className={`line-clamp-2 font-display leading-[1.02] text-navy ${compact ? 'text-[1.36rem]' : 'text-[1.5rem]'}`}>
+        <Link to={`/products/${product.slug}`} className="mt-2 block min-h-[48px] transition hover:text-gold">
+          <h3 className={`line-clamp-2 font-sans font-semibold leading-6 tracking-normal text-navy transition ${compact ? 'text-[14px]' : 'text-[15px] sm:text-[16px]'}`}>
             {product.name}
           </h3>
-        </div>
+        </Link>
 
-        <div className="mt-3 flex min-h-[46px] items-end justify-between gap-3">
+        <Link to={`/products/${product.slug}`} className="mt-3 flex min-h-[46px] items-end justify-between gap-3">
           <div className="min-h-[40px]">
-            <PriceDisplay price={product.price} oldPrice={product.oldPrice} size={compact ? 'sm' : 'md'} />
+            <PriceDisplay price={product.price} originalPrice={comparePrice} oldPrice={product.oldPrice} size={compact ? 'sm' : 'md'} />
           </div>
           {!compact ? (
             <span className="pb-0.5 text-[11px] uppercase tracking-[0.16em] text-slate-400">
-              {product.stock > 0 ? 'Con hang' : 'Het hang'}
+              {product.stock > 0 ? 'Còn hàng' : 'Hết hàng'}
             </span>
           ) : null}
-        </div>
+        </Link>
 
-        <div className="mt-2 flex min-h-[22px] items-center justify-between gap-2">
+        <Link to={`/products/${product.slug}`} className="mt-2 flex min-h-[22px] items-center justify-between gap-2">
           {!compact ? (
             <>
               <span className="truncate text-[11px] uppercase tracking-[0.16em] text-slate-400">{materialLabel || '\u00A0'}</span>
@@ -82,12 +84,14 @@ function ProductCard({ product, mode = 'listing', onAddToCart, isSyncing = false
           ) : (
             <span className="block h-[16px]" aria-hidden="true" />
           )}
-        </div>
+        </Link>
 
-        <div className="mt-auto grid gap-2 pt-3 sm:grid-cols-2">
-          <Link to={`/products/${product.slug}`} className="btn-outline w-full px-3.5 py-2.5 text-center text-sm">
-            Xem chi tiet
-          </Link>
+        <div className={`mt-auto grid gap-2 pt-3 ${onAddToCart ? 'sm:grid-cols-2' : 'place-items-center'}`}>
+          {onAddToCart ? (
+            <Link to={`/products/${product.slug}`} className="btn-outline w-full px-3.5 py-2.5 text-center text-sm">
+              Xem chi tiết
+            </Link>
+          ) : null}
           {onAddToCart ? (
             <button
               type="button"
@@ -95,11 +99,11 @@ function ProductCard({ product, mode = 'listing', onAddToCart, isSyncing = false
               disabled={product.stock <= 0 || isSyncing}
               className="btn-secondary w-full px-3.5 py-2.5 text-sm"
             >
-              {product.stock <= 0 ? 'Het hang' : 'Them vao gio'}
+              {product.stock <= 0 ? 'Hết hàng' : 'Thêm vào giỏ'}
             </button>
           ) : (
-            <Link to={`/products/${product.slug}`} className="btn-secondary w-full px-3.5 py-2.5 text-center text-sm">
-              Kham pha
+            <Link to={`/products/${product.slug}`} className="btn-secondary w-full max-w-[190px] px-5 py-2.5 text-center text-sm">
+              Khám phá ngay
             </Link>
           )}
         </div>

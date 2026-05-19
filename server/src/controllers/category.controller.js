@@ -1,11 +1,44 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import Category from '../models/Category.js';
 import Product from '../models/Product.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const publicImagesDirectory = path.resolve(__dirname, '../../public/images');
+const defaultCategoryImage = '/images/category_default_.png';
+
+function isLocalImageAvailable(imagePath) {
+  if (!imagePath || /^https?:\/\//i.test(imagePath)) {
+    return Boolean(imagePath);
+  }
+
+  if (!imagePath.startsWith('/images/')) {
+    return true;
+  }
+
+  const relativeImagePath = imagePath.replace(/^\/images\/?/, '');
+  return fs.existsSync(path.join(publicImagesDirectory, relativeImagePath));
+}
+
+function resolveCategoryImage(categoryObject) {
+  const configuredImage = categoryObject.image?.trim();
+
+  if (isLocalImageAvailable(configuredImage)) {
+    return configuredImage;
+  }
+
+  return defaultCategoryImage;
+}
+
 async function decorateCategory(category) {
   const productCount = await Product.countDocuments({ category: category._id });
+  const categoryObject = category.toObject();
 
   return {
-    ...category.toObject(),
+    ...categoryObject,
+    image: resolveCategoryImage(categoryObject),
     productCount
   };
 }

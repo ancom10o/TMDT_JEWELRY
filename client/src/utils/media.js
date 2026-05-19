@@ -14,12 +14,12 @@ export const BANNER_TYPE_OPTIONS = [
   {
     value: 'promo',
     label: 'Promo Banner',
-    description: 'Dung cho CTA/khuyen mai, van theo khung 8:3 desktop va 4:3 mobile.'
+    description: 'Khung 8:3 desktop và 4:3 mobile.'
   },
   {
     value: 'story',
     label: 'Story Banner',
-    description: 'Dung cho noi dung editorial, preview theo khung vuong 1:1.'
+    description: 'Nội dung editorial, preview theo khung vuông 1:1.'
   }
 ];
 

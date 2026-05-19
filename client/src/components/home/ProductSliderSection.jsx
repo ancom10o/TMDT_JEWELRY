@@ -74,7 +74,7 @@ function ProductSliderSection({ section }) {
   return (
     <section className="container-page section-shell">
       <SectionHeader
-        eyebrow="San pham noi bat"
+        eyebrow="Sản phẩm nổi bật"
         title={normalizedSection.title}
         actionLabel={normalizedSection.buttonLabel}
         actionTo={normalizedSection.buttonLink}
@@ -86,7 +86,7 @@ function ProductSliderSection({ section }) {
             products={products}
             mode={normalizedSection.settings.variant === 'compact' ? 'compact' : 'listing'}
             visibleSlides={visibleSlides}
-            ariaLabel="san pham"
+            ariaLabel="sản phẩm"
           />
         </div>
       ) : null}
