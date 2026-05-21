@@ -15,7 +15,7 @@ const banners = [
   },
   {
     id: 'wedding',
-    eyebrow: 'Trang sức cưới tinh tế',
+    eyebrow: 'Trang sức cưới',
     title: 'Dấu ấn bền lâu cho ngày trọng đại',
     description: 'Nhẫn cưới và trang sức cưới được chọn lọc cho vẻ đẹp thanh nhã, hiện đại.',
     ctaLabel: 'Xem trang sức cưới',
@@ -79,9 +79,9 @@ function HomeHeroBanner() {
   }
 
   return (
-    <section className="container-page pt-5 sm:pt-6 lg:pt-8">
+    <section className="container-page pt-4 sm:pt-5 lg:pt-8">
       <div
-        className="overflow-hidden rounded-[30px] border border-[#e9deca] bg-[linear-gradient(135deg,_#fffdf8_0%,_#f7f0e5_50%,_#eef2f7_100%)] shadow-[0_24px_70px_rgba(15,23,42,0.08)]"
+        className="overflow-hidden rounded-[24px] border border-[#e9deca] bg-[linear-gradient(135deg,_#fffdf8_0%,_#f7f0e5_50%,_#eef2f7_100%)] shadow-[0_24px_70px_rgba(15,23,42,0.08)] lg:rounded-[30px]"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
@@ -91,16 +91,16 @@ function HomeHeroBanner() {
         >
           {banners.map((banner) => (
             <article key={banner.id} className="w-full flex-none">
-              <div className="grid min-h-[380px] gap-6 p-6 sm:min-h-[410px] sm:p-8 lg:min-h-[440px] lg:grid-cols-[1.02fr_0.98fr] lg:items-center lg:p-10">
+              <div className="grid min-h-[320px] gap-4 p-4 sm:min-h-[360px] sm:gap-5 sm:p-6 lg:min-h-[440px] lg:grid-cols-[1.02fr_0.98fr] lg:items-center lg:gap-6 lg:p-10">
                 <div className="flex max-w-[540px] flex-col justify-center">
                   <p className="eyebrow">{banner.eyebrow}</p>
-                  <h1 className="mt-3 font-display text-[2.3rem] leading-[0.95] text-navy sm:text-[3rem] lg:text-[3.5rem]">
+                  <h1 className="mt-2 font-display text-[1.85rem] leading-tight text-navy sm:text-[2.35rem] lg:mt-3 lg:text-[3.5rem] lg:leading-[0.95]">
                     {banner.title}
                   </h1>
-                  <p className="mt-4 text-sm leading-7 text-slate-600 sm:text-[15px]">{banner.description}</p>
+                  <p className="mt-3 text-sm leading-6 text-slate-600 sm:text-[15px] lg:mt-4 lg:leading-7">{banner.description}</p>
 
-                  <div className="mt-7">
-                    <Link to={banner.ctaTo} className="btn-secondary px-6 py-3">
+                  <div className="mt-5 lg:mt-7">
+                    <Link to={banner.ctaTo} className="btn-secondary px-4 py-2.5 text-sm lg:px-6 lg:py-3">
                       {banner.ctaLabel}
                     </Link>
                   </div>
@@ -108,7 +108,7 @@ function HomeHeroBanner() {
 
                 <div className="flex items-center justify-center">
                   <div
-                    className={`relative h-[240px] w-full overflow-hidden rounded-[28px] bg-gradient-to-br ${banner.accent} sm:h-[280px] lg:h-[320px]`}
+                    className={`relative h-[200px] w-full overflow-hidden rounded-[22px] bg-gradient-to-br ${banner.accent} sm:h-[250px] lg:h-[320px] lg:rounded-[28px]`}
                   >
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_28%,_rgba(255,255,255,0.92),_transparent_18%),radial-gradient(circle_at_68%_32%,_rgba(255,255,255,0.58),_transparent_16%),radial-gradient(circle_at_48%_74%,_rgba(212,175,55,0.42),_transparent_26%)]" />
                     <div className="absolute inset-x-8 bottom-8 top-8 rounded-[24px] border border-white/60 bg-[linear-gradient(160deg,_rgba(255,255,255,0.55)_0%,_rgba(255,255,255,0.12)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]" />
@@ -124,7 +124,7 @@ function HomeHeroBanner() {
           ))}
         </div>
 
-        <div className="flex items-center justify-between gap-4 border-t border-white/40 px-5 py-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between gap-4 border-t border-white/40 px-4 py-3 sm:px-6 lg:px-8 lg:py-4">
           <div className="flex items-center gap-2">
             {banners.map((banner, index) => {
               const isActive = index === activeIndex;

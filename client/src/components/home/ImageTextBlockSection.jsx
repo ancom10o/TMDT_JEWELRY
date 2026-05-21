@@ -16,9 +16,9 @@ function ImageTextBlockSection({ section }) {
 
   return (
     <section className="container-page section-shell">
-      <div className="grid gap-6 lg:grid-cols-2 lg:items-center">
+      <div className="grid gap-5 sm:gap-6 lg:grid-cols-2 lg:items-center">
         <div className={imageFirst ? 'lg:order-1' : 'lg:order-2'}>
-          <div className="overflow-hidden rounded-[34px] border border-[#ebe4d8] bg-[#f8f4ea] shadow-[0_18px_60px_rgba(15,23,42,0.06)]">
+          <div className="overflow-hidden rounded-[24px] border border-[#ebe4d8] bg-[#f8f4ea] shadow-[0_18px_60px_rgba(15,23,42,0.06)] lg:rounded-[34px]">
             {mediaItem?.image && (mediaItem.image.startsWith('/') || mediaItem.image.startsWith('http')) ? (
               <img src={getPublicAssetUrl(mediaItem.image)} alt={mediaItem.title || normalizedSection.title} className={`${IMAGE_ASPECT_CLASSES.square} h-full w-full object-cover object-center`} />
             ) : (
@@ -29,11 +29,11 @@ function ImageTextBlockSection({ section }) {
 
         <article className={imageFirst ? 'lg:order-2' : 'lg:order-1'}>
           <p className="eyebrow">Bộ sưu tập</p>
-          <h2 className="mt-4 font-display text-[2.5rem] leading-none text-navy sm:text-[2.9rem]">{normalizedSection.title}</h2>
+          <h2 className="mt-3 font-display text-[1.75rem] leading-tight text-navy sm:text-[2.2rem] lg:mt-4 lg:text-[2.9rem] lg:leading-none">{normalizedSection.title}</h2>
           {normalizedSection.subtitle ? <p className="mt-4 text-sm font-semibold uppercase tracking-[0.14em] text-gold">{normalizedSection.subtitle}</p> : null}
-          <p className="mt-5 max-w-xl text-sm leading-8 text-slate-600">{normalizedSection.description || mediaItem?.description}</p>
+          <p className="mt-3 max-w-xl text-sm leading-7 text-slate-600 lg:mt-5 lg:leading-8">{normalizedSection.description || mediaItem?.description}</p>
           {normalizedSection.buttonLabel ? (
-            <div className="mt-8">
+            <div className="mt-5 lg:mt-8">
               <Link to={normalizedSection.buttonLink || mediaItem?.link || '/products'} className="btn-secondary">
                 {normalizedSection.buttonLabel}
               </Link>

@@ -4,6 +4,7 @@ function getToastClass(type) {
   const map = {
     success: 'border-emerald-200 bg-emerald-50 text-emerald-800',
     error: 'border-red-200 bg-red-50 text-red-800',
+    order: 'border-emerald-300 bg-emerald-100 text-emerald-900 shadow-[0_18px_44px_rgba(16,185,129,0.22)]',
     info: 'border-slate-200 bg-white text-slate-800'
   };
 

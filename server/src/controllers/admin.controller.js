@@ -250,7 +250,7 @@ export async function exportMonthlyRevenueExcel(req, res, next) {
 
     const rows = orders.flatMap((order) =>
       order.items.map((item) => ({
-        orderCode: `#${order._id.toString().slice(-8).toUpperCase()}`,
+        orderCode: `#${order.orderCode || order._id.toString().slice(-6).toUpperCase()}`,
         orderDate: new Intl.DateTimeFormat('vi-VN').format(new Date(order.createdAt)),
         status: order.status,
         paymentMethod: order.paymentMethod,

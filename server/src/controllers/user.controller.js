@@ -20,6 +20,10 @@ function buildPublicUser(user) {
     email: user.email,
     phone: user.phone,
     address: user.address,
+    city: user.city,
+    district: user.district,
+    ward: user.ward,
+    addressLine: user.addressLine,
     role: user.role,
     isBlocked: Boolean(user.isBlocked),
     createdAt: user.createdAt,
@@ -32,7 +36,11 @@ function normalizeProfilePayload(payload = {}) {
     fullName: payload.fullName?.trim() || '',
     email: payload.email?.trim().toLowerCase() || '',
     phone: payload.phone?.trim() || '',
-    address: payload.address?.trim() || ''
+    address: payload.address?.trim() || '',
+    city: payload.city?.trim() || '',
+    district: payload.district?.trim() || '',
+    ward: payload.ward?.trim() || '',
+    addressLine: payload.addressLine?.trim() || ''
   };
 }
 
@@ -215,6 +223,10 @@ export async function updateProfile(req, res, next) {
     user.email = payload.email;
     user.phone = payload.phone;
     user.address = payload.address;
+    user.city = payload.city;
+    user.district = payload.district;
+    user.ward = payload.ward;
+    user.addressLine = payload.addressLine;
 
     await user.save();
 

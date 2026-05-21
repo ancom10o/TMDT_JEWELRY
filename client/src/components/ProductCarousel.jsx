@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ProductCard from './ProductCard.jsx';
 
 const AUTOPLAY_DELAY = 4500;
@@ -7,11 +7,11 @@ const DRAG_THRESHOLD = 6;
 const RECENT_DRAG_RESET_DELAY = 40;
 
 function getSlidesPerView(width, visibleSlides = {}) {
-  if (width >= 1280) {
+  if (width >= 1024) {
     return visibleSlides.desktop || 4;
   }
 
-  if (width >= 768) {
+  if (width >= 640) {
     return visibleSlides.tablet || 2;
   }
 
@@ -59,7 +59,14 @@ function ProductCarousel({
     return getSlidesPerView(browserWindow.innerWidth, visibleSlides);
   });
 
-  const totalPages = useMemo(() => Math.max(1, resolvedItems.length - slidesPerView + 1), [resolvedItems.length, slidesPerView]);
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(resolvedItems.length - slidesPerView + 1)), [resolvedItems.length, slidesPerView]);
+
+  const syncTranslate = useCallback((nextActiveIndex = activeIndex, nextSlidesPerView = slidesPerView) => {
+    const sliderWidth = rootRef.current?.offsetWidth || 0;
+    const nextTranslate = sliderWidth > 0 ? -(sliderWidth / nextSlidesPerView) * nextActiveIndex : 0;
+    currentTranslateRef.current = nextTranslate;
+    setTranslateX(nextTranslate);
+  }, [activeIndex, slidesPerView]);
 
   useEffect(() => {
     if (!browserWindow) {
@@ -67,7 +74,17 @@ function ProductCarousel({
     }
 
     function handleResize() {
-      setSlidesPerView(getSlidesPerView(browserWindow.innerWidth, visibleSlides));
+      const nextSlidesPerView = getSlidesPerView(browserWindow.innerWidth, visibleSlides);
+
+      setSlidesPerView((current) => {
+        if (current !== nextSlidesPerView) {
+          setActiveIndex(0);
+          currentTranslateRef.current = 0;
+          setTranslateX(0);
+        }
+
+        return nextSlidesPerView;
+      });
     }
 
     handleResize();
@@ -79,6 +96,24 @@ function ProductCarousel({
   }, [browserWindow, visibleSlides]);
 
   useEffect(() => {
+    if (!browserWindow || !rootRef.current || typeof browserWindow.ResizeObserver === 'undefined') {
+      return undefined;
+    }
+
+    const resizeObserver = new browserWindow.ResizeObserver(() => {
+      if (!isPointerDown) {
+        syncTranslate();
+      }
+    });
+
+    resizeObserver.observe(rootRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [browserWindow, isPointerDown, syncTranslate]);
+
+  useEffect(() => {
     setActiveIndex((current) => Math.min(current, totalPages - 1));
   }, [totalPages]);
 
@@ -87,11 +122,8 @@ function ProductCarousel({
       return;
     }
 
-    const sliderWidth = rootRef.current.offsetWidth;
-    const nextTranslate = sliderWidth > 0 ? -(sliderWidth / slidesPerView) * activeIndex : 0;
-    currentTranslateRef.current = nextTranslate;
-    setTranslateX(nextTranslate);
-  }, [activeIndex, isPointerDown, slidesPerView]);
+    syncTranslate();
+  }, [activeIndex, isPointerDown, slidesPerView, syncTranslate]);
 
   useEffect(() => {
     if (!browserWindow || isHovered || isPointerDown || resolvedItems.length <= slidesPerView) {
@@ -248,7 +280,7 @@ function ProductCarousel({
       onMouseLeave={() => setIsHovered(false)}
       onClickCapture={handleClickCapture}
     >
-      <div className="overflow-hidden">
+      <div className="-mt-3 overflow-hidden pt-3">
         <div
           ref={trackRef}
           className={`flex select-none touch-pan-y ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
@@ -264,7 +296,7 @@ function ProductCarousel({
           {resolvedItems.map((item, index) => (
             <div
               key={getItemKey ? getItemKey(item, index) : item._id || item.slug || index}
-              className="flex-none px-2"
+              className="flex-none px-1.5 sm:px-2"
               style={{ width: `${100 / slidesPerView}%` }}
             >
               {renderItem ? renderItem(item, index) : <ProductCard product={item} mode={mode} />}

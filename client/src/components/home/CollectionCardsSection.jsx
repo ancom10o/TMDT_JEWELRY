@@ -33,7 +33,7 @@ function CollectionCardsSection({ section }) {
         actionTo={normalizedSection.buttonLink}
       />
 
-      <div className={`mt-6 grid gap-5 sm:grid-cols-2 ${columnClassMap[columns]}`}>
+      <div className={`mt-5 grid gap-4 sm:grid-cols-2 lg:mt-6 lg:gap-5 ${columnClassMap[columns]}`}>
         {items.map((item, index) => {
           const cardContent = (
             <>
@@ -44,9 +44,9 @@ function CollectionCardsSection({ section }) {
             ) : (
               <div className={`${cardAspectClass} bg-[radial-gradient(circle_at_top,_rgba(212,175,55,0.24),_transparent_35%),linear-gradient(135deg,_#ffffff_0%,_#f5ecda_55%,_#ece7df_100%)]`} />
             )}
-            <div className="p-4 sm:p-5">
+            <div className="p-3.5 sm:p-4 lg:p-5">
               {item.badge || item.subtitle ? <p className="eyebrow">{item.badge || item.subtitle}</p> : null}
-              <h3 className="mt-2.5 line-clamp-2 font-display text-[1.75rem] leading-[0.98] text-navy">{item.title}</h3>
+              <h3 className="mt-2 line-clamp-2 font-display text-[1.35rem] leading-tight text-navy sm:text-[1.55rem] lg:mt-2.5 lg:text-[1.75rem] lg:leading-[0.98]">{item.title}</h3>
               <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">{item.description}</p>
               {item.link ? (
                 <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-navy transition group-hover:text-gold">
@@ -62,14 +62,14 @@ function CollectionCardsSection({ section }) {
             <Link
               key={`${item.title}-${index}`}
               to={item.link}
-              className="group block overflow-hidden rounded-[28px] border border-[#ebe4d8] bg-white shadow-[0_14px_34px_rgba(15,23,42,0.045)] transition hover:-translate-y-1 hover:shadow-[0_22px_50px_rgba(15,23,42,0.08)]"
+                className="group block overflow-hidden rounded-[22px] border border-[#ebe4d8] bg-white shadow-[0_14px_34px_rgba(15,23,42,0.045)] transition hover:-translate-y-1 hover:shadow-[0_22px_50px_rgba(15,23,42,0.08)] lg:rounded-[28px]"
             >
               {cardContent}
             </Link>
           ) : (
             <article
               key={`${item.title}-${index}`}
-              className="group overflow-hidden rounded-[28px] border border-[#ebe4d8] bg-white shadow-[0_14px_34px_rgba(15,23,42,0.045)]"
+              className="group overflow-hidden rounded-[22px] border border-[#ebe4d8] bg-white shadow-[0_14px_34px_rgba(15,23,42,0.045)] lg:rounded-[28px]"
             >
               {cardContent}
             </article>

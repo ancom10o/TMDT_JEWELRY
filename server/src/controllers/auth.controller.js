@@ -10,29 +10,33 @@ function sanitizeAuthPayload(payload = {}) {
     email: payload.email?.trim().toLowerCase() || '',
     password: payload.password || '',
     phone: payload.phone?.trim() || '',
-    address: payload.address?.trim() || ''
+    address: payload.address?.trim() || '',
+    city: payload.city?.trim() || '',
+    district: payload.district?.trim() || '',
+    ward: payload.ward?.trim() || '',
+    addressLine: payload.addressLine?.trim() || ''
   };
 }
 
 function validateRegisterInput({ fullName, email, password, phone }) {
   if (!fullName || !email || !password) {
-    return 'Vui long nhap du thong tin.';
+    return 'Vui lòng nhập đầy đủ thông tin.';
   }
 
   if (fullName.length < 2) {
-    return 'Ho ten phai co it nhat 2 ky tu.';
+    return 'Họ tên phải có ít nhất 2 ký tự.';
   }
 
   if (!emailPattern.test(email)) {
-    return 'Email khong dung dinh dang.';
+    return 'Email không đúng định dạng.';
   }
 
   if (password.length < 6) {
-    return 'Mat khau phai co it nhat 6 ky tu.';
+    return 'Mật khẩu phải có ít nhất 6 ký tự.';
   }
 
   if (phone && !phonePattern.test(phone)) {
-    return 'So dien thoai khong hop le.';
+    return 'Số điện thoại không hợp lệ.';
   }
 
   return null;
@@ -40,11 +44,11 @@ function validateRegisterInput({ fullName, email, password, phone }) {
 
 function validateLoginInput({ email, password }) {
   if (!email || !password) {
-    return 'Vui long nhap email va mat khau.';
+    return 'Vui lòng nhập email và mật khẩu.';
   }
 
   if (!emailPattern.test(email)) {
-    return 'Email khong dung dinh dang.';
+    return 'Email không đúng định dạng.';
   }
 
   return null;
@@ -58,6 +62,10 @@ function buildAuthResponse(user) {
       email: user.email,
       phone: user.phone,
       address: user.address,
+      city: user.city,
+      district: user.district,
+      ward: user.ward,
+      addressLine: user.addressLine,
       role: user.role,
       isBlocked: Boolean(user.isBlocked)
     },
@@ -67,7 +75,7 @@ function buildAuthResponse(user) {
 
 export async function register(req, res, next) {
   try {
-    const { fullName, email, password, phone, address } = sanitizeAuthPayload(req.body);
+    const { fullName, email, password, phone, address, city, district, ward, addressLine } = sanitizeAuthPayload(req.body);
     const validationError = validateRegisterInput({ fullName, email, password, phone });
 
     if (validationError) {
@@ -76,10 +84,10 @@ export async function register(req, res, next) {
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(409).json({ message: 'Email da duoc su dung.' });
+      return res.status(409).json({ message: 'Email đã được sử dụng.' });
     }
 
-    const user = await User.create({ fullName, email, password, phone, address });
+    const user = await User.create({ fullName, email, password, phone, address, city, district, ward, addressLine });
 
     res.status(201).json(buildAuthResponse(user));
   } catch (error) {
@@ -98,11 +106,11 @@ export async function login(req, res, next) {
 
     const user = await User.findOne({ email });
     if (!user || !(await user.comparePassword(password))) {
-      return res.status(401).json({ message: 'Email hoac mat khau khong dung.' });
+      return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng.' });
     }
 
     if (user.isBlocked) {
-      return res.status(403).json({ message: 'Tai khoan cua ban dang bi khoa.' });
+      return res.status(403).json({ message: 'Tài khoản của bạn đang bị khóa.' });
     }
 
     res.json(buildAuthResponse(user));
@@ -119,6 +127,10 @@ export async function getProfile(req, res) {
       email: req.user.email,
       phone: req.user.phone,
       address: req.user.address,
+      city: req.user.city,
+      district: req.user.district,
+      ward: req.user.ward,
+      addressLine: req.user.addressLine,
       role: req.user.role,
       isBlocked: Boolean(req.user.isBlocked)
     }

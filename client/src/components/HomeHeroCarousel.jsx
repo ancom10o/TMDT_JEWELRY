@@ -95,11 +95,11 @@ function getSlidesPerView(width) {
     return 3;
   }
 
-  if (width >= 768) {
+  if (width >= 640) {
     return 2;
   }
 
-  return 1;
+  return 1.12;
 }
 
 function HomeHeroCarousel() {
@@ -131,7 +131,7 @@ function HomeHeroCarousel() {
     };
   }, [browserWindow]);
 
-  const totalPages = useMemo(() => Math.max(1, slides.length - slidesPerView + 1), [slidesPerView]);
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(slides.length - slidesPerView + 1)), [slidesPerView]);
 
   useEffect(() => {
     setActiveIndex((current) => Math.min(current, totalPages - 1));
@@ -162,12 +162,12 @@ function HomeHeroCarousel() {
   }
 
   return (
-    <section className="container-page pt-5 sm:pt-6 lg:pt-8">
-      <div className="rounded-[28px] border border-[#e9deca] bg-[linear-gradient(135deg,_#fffdf8_0%,_#f8f1e6_48%,_#eef2f7_100%)] p-4 shadow-[0_20px_60px_rgba(15,23,42,0.06)] sm:p-5 lg:p-6">
-        <div className="mb-5 flex items-end justify-between gap-4">
+    <section className="container-page pt-4 sm:pt-5 lg:pt-8">
+      <div className="rounded-[22px] border border-[#e9deca] bg-[linear-gradient(135deg,_#fffdf8_0%,_#f8f1e6_48%,_#eef2f7_100%)] p-3.5 shadow-[0_20px_60px_rgba(15,23,42,0.06)] sm:rounded-[26px] sm:p-5 lg:rounded-[28px] lg:p-6">
+        <div className="mb-4 flex items-end justify-between gap-4 lg:mb-5">
           <div className="max-w-2xl">
             <p className="eyebrow">Nổi bật hôm nay</p>
-            <h1 className="mt-2 font-display text-[2.1rem] leading-none text-navy sm:text-[2.6rem] lg:text-[3rem]">
+            <h1 className="mt-2 font-display text-[1.6rem] leading-tight text-navy sm:text-[2.1rem] lg:text-[3rem] lg:leading-none">
               Bộ sưu tập nổi bật
             </h1>
             <p className="mt-3 text-sm text-slate-600 sm:text-[15px]">
@@ -189,16 +189,16 @@ function HomeHeroCarousel() {
           <div className="overflow-hidden">
             <div className="flex transition-transform duration-700 ease-out" style={{ transform: `translate3d(-${translateX}, 0, 0)` }}>
               {slides.map((slide) => (
-                <article key={slide.id} className="flex-none px-2" style={{ width: `${100 / slidesPerView}%` }}>
-                  <div className="flex h-[310px] flex-col overflow-hidden rounded-[24px] border border-white/70 bg-white/88 p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] sm:h-[320px]">
-                    <div className={`rounded-[20px] bg-gradient-to-br ${slide.accent} p-5`}>
+                <article key={slide.id} className="flex-none px-1.5 sm:px-2" style={{ width: `${100 / slidesPerView}%` }}>
+                  <div className="flex h-[280px] flex-col overflow-hidden rounded-[20px] border border-white/70 bg-white/88 p-3 shadow-[0_14px_40px_rgba(15,23,42,0.06)] sm:h-[300px] sm:p-4 lg:h-[320px] lg:rounded-[24px]">
+                    <div className={`rounded-[18px] bg-gradient-to-br ${slide.accent} p-4 lg:rounded-[20px] lg:p-5`}>
                       <div className="flex items-start justify-between gap-3">
                         <p className="eyebrow">{slide.eyebrow}</p>
                         <span className="rounded-full border border-white/75 bg-white/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-700">
                           {slide.stat}
                         </span>
                       </div>
-                      <h2 className="mt-3 font-display text-[1.95rem] leading-none text-navy">{slide.title}</h2>
+                      <h2 className="mt-2 font-display text-[1.35rem] leading-tight text-navy sm:text-[1.55rem] lg:mt-3 lg:text-[1.95rem] lg:leading-none">{slide.title}</h2>
                       <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">{slide.description}</p>
                     </div>
 
@@ -214,7 +214,7 @@ function HomeHeroCarousel() {
                         </div>
                       </div>
 
-                      <Link to={slide.ctaTo} className="btn-secondary mt-4 w-full px-4 py-2.5 text-sm">
+                      <Link to={slide.ctaTo} className="btn-secondary mt-3 w-full px-3 py-2 text-xs sm:text-sm lg:mt-4 lg:px-4 lg:py-2.5">
                         {slide.ctaLabel}
                       </Link>
                     </div>

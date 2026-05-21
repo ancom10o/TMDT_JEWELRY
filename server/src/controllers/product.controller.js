@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import Category from '../models/Category.js';
 import Product from '../models/Product.js';
+import { uploadBufferToCloudinary } from '../utils/cloudinaryUpload.js';
 import { buildProductSearchText, escapeRegex, normalizeText } from '../utils/search.js';
 
 const PUBLIC_PRODUCT_EXCLUDE_FIELDS = '-costPrice';
@@ -531,6 +532,27 @@ export async function createProduct(req, res, next) {
     const populatedProduct = await product.populate('category', 'name slug');
 
     res.status(201).json({ product: populatedProduct });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function uploadProductImages(req, res, next) {
+  try {
+    const files = req.files || [];
+
+    if (!files.length) {
+      return res.status(400).json({ message: 'Vui long chon it nhat 1 anh san pham.' });
+    }
+
+    const uploadedImages = await Promise.all(
+      files.map(async (file) => {
+        const result = await uploadBufferToCloudinary(file.buffer);
+        return result.secure_url;
+      })
+    );
+
+    res.status(201).json({ images: uploadedImages });
   } catch (error) {
     next(error);
   }

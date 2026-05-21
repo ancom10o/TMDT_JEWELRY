@@ -17,6 +17,7 @@ import HomePage from '../pages/HomePage.jsx';
 import LoginPage from '../pages/LoginPage.jsx';
 import MyOrdersPage from '../pages/MyOrdersPage.jsx';
 import OrderDetailPage from '../pages/OrderDetailPage.jsx';
+import OrderPaymentQrPage from '../pages/OrderPaymentQrPage.jsx';
 import ProductDetailPage from '../pages/ProductDetailPage.jsx';
 import ProductsPage from '../pages/ProductsPage.jsx';
 import ProfilePage from '../pages/ProfilePage.jsx';
@@ -63,6 +64,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <OrderDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/my-orders/:id/payment"
+          element={
+            <ProtectedRoute>
+              <OrderPaymentQrPage />
             </ProtectedRoute>
           }
         />

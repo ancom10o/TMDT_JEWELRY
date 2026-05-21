@@ -15,6 +15,7 @@ const initialFormState = {
   type: 'percentage',
   value: '',
   minOrder: '',
+  maxDiscount: '',
   usageLimit: '',
   startDate: '',
   endDate: '',
@@ -39,6 +40,7 @@ function buildFormState(coupon) {
     type: coupon.discountType || 'percentage',
     value: String(coupon.discountValue ?? ''),
     minOrder: String(coupon.minOrderValue ?? ''),
+    maxDiscount: String(coupon.maxDiscountAmount ?? ''),
     usageLimit: String(coupon.usageLimit ?? ''),
     startDate: formatDateInput(coupon.startDate),
     endDate: formatDateInput(coupon.endDate),
@@ -49,12 +51,14 @@ function buildFormState(coupon) {
 function validateForm(formState) {
   const value = Number(formState.value);
   const minOrder = Number(formState.minOrder || 0);
+  const maxDiscount = Number(formState.maxDiscount || 0);
   const usageLimit = Number(formState.usageLimit || 0);
 
   if (!formState.code.trim()) return 'Mã giảm giá không được để trống.';
   if (!Number.isFinite(value) || value <= 0) return 'Giá trị giảm phải lớn hơn 0.';
   if (formState.type === 'percentage' && value > 100) return 'Giảm theo % không được vượt quá 100.';
   if (!Number.isFinite(minOrder) || minOrder < 0) return 'Đơn tối thiểu không hợp lệ.';
+  if (!Number.isFinite(maxDiscount) || maxDiscount < 0) return 'Giảm tối đa không hợp lệ.';
   if (!Number.isInteger(usageLimit) || usageLimit < 0) return 'Số lần sử dụng phải lớn hơn hoặc bằng 0.';
   if (!formState.startDate || !formState.endDate) return 'Vui lòng chọn ngày bắt đầu và kết thúc.';
   if (new Date(formState.endDate) <= new Date(formState.startDate)) return 'Ngày kết thúc phải sau ngày bắt đầu.';
@@ -153,7 +157,7 @@ function AdminCouponsPage() {
         discountType: formState.type,
         discountValue: Number(formState.value || 0),
         minOrderValue: Number(formState.minOrder || 0),
-        maxDiscountAmount: 0,
+        maxDiscountAmount: formState.type === 'percentage' ? Number(formState.maxDiscount || 0) : 0,
         usageLimit: Number(formState.usageLimit || 0),
         startDate: formState.startDate,
         endDate: formState.endDate,
@@ -253,6 +257,7 @@ function AdminCouponsPage() {
             { key: 'type', label: 'Loại' },
             { key: 'value', label: 'Giá trị' },
             { key: 'min', label: 'Đơn tối thiểu' },
+            { key: 'max', label: 'Giảm tối đa' },
             { key: 'usage', label: 'Sử dụng' },
             { key: 'date', label: 'Thời gian' },
             { key: 'status', label: 'Trạng thái' },
@@ -267,6 +272,9 @@ function AdminCouponsPage() {
                 <td className="px-5 py-4 text-slate-600">{coupon.discountType === 'percentage' ? 'Phần trăm' : 'Số tiền cố định'}</td>
                 <td className="px-5 py-4 text-slate-600">{coupon.discountType === 'percentage' ? `${coupon.discountValue}%` : formatCurrency(coupon.discountValue)}</td>
                 <td className="px-5 py-4 text-slate-600">{formatCurrency(coupon.minOrderValue)}</td>
+                <td className="px-5 py-4 text-slate-600">
+                  {coupon.discountType === 'percentage' && coupon.maxDiscountAmount > 0 ? formatCurrency(coupon.maxDiscountAmount) : 'Không giới hạn'}
+                </td>
                 <td className="px-5 py-4 text-slate-600">
                   {coupon.usedCount}/{coupon.usageLimit > 0 ? coupon.usageLimit : 'Không giới hạn'}
                 </td>
@@ -319,6 +327,25 @@ function AdminCouponsPage() {
               <span className="field-label">Đơn tối thiểu</span>
               <input type="number" name="minOrder" value={formState.minOrder} onChange={handleChange} className="input-field" />
               {formState.minOrder ? <span className="mt-2 block text-xs text-slate-500">Hiển thị: {formatCurrencyInput(formState.minOrder)}₫</span> : null}
+            </label>
+            <label>
+              <span className="field-label">Giảm tối đa</span>
+              <input
+                type="number"
+                name="maxDiscount"
+                value={formState.maxDiscount}
+                onChange={handleChange}
+                className="input-field"
+                disabled={formState.type !== 'percentage'}
+                placeholder="0 = không giới hạn"
+              />
+              <span className="mt-2 block text-xs text-slate-500">
+                {formState.type === 'percentage'
+                  ? formState.maxDiscount && Number(formState.maxDiscount) > 0
+                    ? `Hiển thị: ${formatCurrencyInput(formState.maxDiscount)}₫`
+                    : 'Để trống hoặc nhập 0 nếu không muốn giới hạn số tiền giảm.'
+                  : 'Chỉ áp dụng cho mã giảm theo phần trăm.'}
+              </span>
             </label>
             <label>
               <span className="field-label">Số lần sử dụng</span>

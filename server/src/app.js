@@ -21,6 +21,7 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const publicDirectory = path.resolve(__dirname, '../public');
+const uploadsDirectory = path.resolve(__dirname, '../uploads');
 
 function createImagePlaceholderSvg(imagePath) {
   const rawName = path.basename(imagePath, path.extname(imagePath));
@@ -89,6 +90,7 @@ app.use(
 app.use(express.json());
 app.use(morgan('dev'));
 app.use('/images', express.static(path.join(publicDirectory, 'images')));
+app.use('/uploads', express.static(uploadsDirectory));
 app.get('/images/:group/:filename', (req, res) => {
   const svg = createImagePlaceholderSvg(req.params.filename);
   res.type('image/svg+xml').send(svg);

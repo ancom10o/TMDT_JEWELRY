@@ -18,7 +18,6 @@ const DETAIL_TABS = [
   { id: 'warranty', label: 'Chính sách bảo hành' },
   { id: 'care', label: 'Hướng dẫn bảo quản' }
 ];
-
 function HeartIcon({ filled = false }) {
   return (
     <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'}>
@@ -211,7 +210,7 @@ function ProductDetailPage() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
-  const { addToCart, isSyncing } = useCart();
+  const { addToCart, cartItems, isSyncing, selectOnlyCartItemByProduct, updateQuantity } = useCart();
   const { showToast } = useToast();
   const { isFavorite, toggleWishlist } = useWishlist();
   const [product, setProduct] = useState(null);
@@ -347,10 +346,37 @@ function ProductDetailPage() {
   }
 
   async function handleBuyNow() {
-    const added = await handleAddToCart();
+    if (!product || product.stock <= 0) {
+      return;
+    }
 
-    if (added) {
+    try {
+      const existingItem = cartItems.find(
+        (item) => item.productId === product._id && (item.selectedSize || '') === (selectedSize || '')
+      );
+      const nextItems = existingItem
+        ? await updateQuantity(existingItem.serverItemId || existingItem.id || existingItem.productId, quantity)
+        : await addToCart(
+            {
+              ...product,
+              selectedSize
+            },
+            quantity
+          );
+
+      const selectedKey = selectOnlyCartItemByProduct(product._id, selectedSize, nextItems);
+
+      if (!selectedKey) {
+        throw new Error('Không thể chọn sản phẩm để thanh toán.');
+      }
+
       navigate('/checkout');
+    } catch (error) {
+      showToast({
+        title: 'Không thể mua ngay',
+        description: error.response?.data?.message || error.message || 'Vui lòng thử lại sau.',
+        type: 'error'
+      });
     }
   }
 
@@ -426,8 +452,8 @@ function ProductDetailPage() {
   const favoriteActive = isFavorite(product._id);
 
   return (
-    <section className="container-page py-8 sm:py-10 lg:py-12">
-      <div className="grid items-start gap-8 xl:grid-cols-[0.55fr_0.45fr]">
+    <section className="container-page py-6 sm:py-8 lg:py-12">
+      <div className="grid items-start gap-5 sm:gap-6 lg:gap-8 xl:grid-cols-[0.55fr_0.45fr]">
         <ProductGallery product={product} />
 
         <div className="xl:sticky xl:top-24 xl:self-start">
@@ -583,7 +609,7 @@ function ProductDetailPage() {
         </div>
       </div>
 
-      <div className="mt-10">
+      <div className="mt-6 sm:mt-8 lg:mt-10">
         <ProductDetailTabs product={product} availableSizes={availableSizes} detailItems={detailItems} />
       </div>
 
@@ -597,11 +623,11 @@ function ProductDetailPage() {
         />
 
         {relatedLoading ? (
-          <div className="mt-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:mt-8 lg:grid-cols-4 lg:gap-5">
             {Array.from({ length: 4 }).map((_, index) => (
               <div key={index} className="surface-card overflow-hidden">
-                <div className="h-72 animate-pulse bg-slate-100" />
-                <div className="space-y-3 p-6">
+                <div className="h-44 animate-pulse bg-slate-100 sm:h-56 lg:h-72" />
+                <div className="space-y-2 p-3 sm:p-4 lg:space-y-3 lg:p-6">
                   <div className="h-3 w-24 animate-pulse rounded-full bg-slate-100" />
                   <div className="h-8 w-2/3 animate-pulse rounded-full bg-slate-100" />
                   <div className="h-4 w-full animate-pulse rounded-full bg-slate-100" />
@@ -618,7 +644,7 @@ function ProductDetailPage() {
         ) : null}
 
         {!relatedLoading && !relatedError && relatedProducts.length > 0 ? (
-          <div className="mt-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:mt-8 lg:grid-cols-4 lg:gap-5">
             {relatedProducts.map((item) => (
               <ProductCard key={item._id || item.slug} product={item} mode="compact" />
             ))}

@@ -20,6 +20,7 @@ function ProductsPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [searchInput, setSearchInput] = useState(searchParams.get('q') || '');
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [desktopFiltersOpen, setDesktopFiltersOpen] = useState(true);
   const { addToCart, isSyncing } = useCart();
   const { showToast } = useToast();
 
@@ -123,6 +124,10 @@ function ProductsPage() {
     () => getCategoryBannerConfig(selectedCategory, selectedCategoryInfo?.name || ''),
     [selectedCategory, selectedCategoryInfo]
   );
+  const categoryDescription = selectedCategoryInfo?.description?.trim() || categoryPresentation.description;
+  const productGridClass = desktopFiltersOpen
+    ? 'grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 xl:grid-cols-3 xl:gap-5'
+    : 'grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 lg:grid-cols-4 lg:gap-5';
 
   function updateParams(nextValues) {
     updateParamsWithOptions(nextValues);
@@ -236,23 +241,23 @@ function ProductsPage() {
   }
 
   return (
-    <section className="container-page py-8 sm:py-10 lg:py-12">
+    <section className="container-page py-6 sm:py-8 lg:py-12">
       <CategoryHeroBanner
         categorySlug={selectedCategory}
         categoryName={selectedCategoryInfo?.name || ''}
         categoryImage={selectedCategoryInfo?.image || ''}
       />
 
-      <div className="surface-soft overflow-hidden p-6 shadow-[0_24px_70px_rgba(15,23,42,0.06)] sm:p-8 lg:p-10">
+      <div className="surface-soft overflow-hidden p-4 shadow-[0_24px_70px_rgba(15,23,42,0.06)] sm:p-6 lg:p-10">
         <SectionHeader
           eyebrow={selectedCategoryInfo?.name ? 'Danh mục' : 'Bộ sưu tập'}
           title={categoryPresentation.title}
-          description={categoryPresentation.description}
+          description={categoryDescription}
           align="start"
         />
       </div>
 
-      <div className="mt-8">
+      <div className="mt-5 sm:mt-6 lg:mt-8">
         <ProductSortBar
           total={loadingProducts ? 0 : pagination.total || 0}
           selectedSort={selectedSort}
@@ -261,12 +266,14 @@ function ProductsPage() {
           onSearchSubmit={handleSearchSubmit}
           onSortChange={handleSortChange}
           onOpenFilters={() => setMobileFiltersOpen(true)}
+          onToggleDesktopFilters={() => setDesktopFiltersOpen((current) => !current)}
+          desktopFiltersOpen={desktopFiltersOpen}
           onResetFilters={handleResetFilters}
         />
       </div>
 
-      <div className="mt-8 grid items-start gap-8 xl:grid-cols-[300px_minmax(0,1fr)]">
-        <aside className="hidden xl:block">
+      <div className={`mt-5 grid items-start gap-5 sm:mt-6 sm:gap-6 lg:mt-8 lg:gap-8 ${desktopFiltersOpen ? 'xl:grid-cols-[300px_minmax(0,1fr)]' : ''}`}>
+        <aside className={desktopFiltersOpen ? 'hidden xl:block' : 'hidden'}>
           <div className="surface-card sticky top-24 p-6">
             <ProductFilterSidebar
               categories={categories}
@@ -294,7 +301,7 @@ function ProductsPage() {
               />
               <div className="absolute inset-x-0 bottom-0 max-h-[82vh] overflow-y-auto rounded-t-[28px] bg-white p-5 shadow-[0_-20px_60px_rgba(15,23,42,0.18)]">
                 <div className="mb-4 flex items-center justify-between">
-                  <h3 className="font-display text-[2rem] leading-none text-navy">Bộ lọc sản phẩm</h3>
+                  <h3 className="font-display text-[1.5rem] leading-tight text-navy sm:text-[1.75rem] lg:text-[2rem] lg:leading-none">Bộ lọc sản phẩm</h3>
                   <button type="button" className="btn-ghost" onClick={() => setMobileFiltersOpen(false)}>
                     Đóng
                   </button>
@@ -318,11 +325,11 @@ function ProductsPage() {
           {!loadingProducts && errorMessage ? <div className="state-error">{errorMessage}</div> : null}
 
           {loadingProducts ? (
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 2xl:grid-cols-3">
+            <div className={productGridClass}>
               {Array.from({ length: 6 }).map((_, index) => (
                 <div key={index} className="surface-card overflow-hidden">
-                  <div className="h-[320px] animate-pulse bg-slate-100" />
-                  <div className="space-y-3 p-6">
+                  <div className="h-[180px] animate-pulse bg-slate-100 sm:h-[240px] lg:h-[320px]" />
+                  <div className="space-y-2 p-3 sm:p-4 lg:space-y-3 lg:p-6">
                     <div className="h-3 w-24 animate-pulse rounded-full bg-slate-100" />
                     <div className="h-8 w-2/3 animate-pulse rounded-full bg-slate-100" />
                     <div className="h-4 w-full animate-pulse rounded-full bg-slate-100" />
@@ -335,7 +342,7 @@ function ProductsPage() {
 
           {!loadingProducts && !errorMessage && products.length === 0 ? (
             <div className="state-empty">
-              <h3 className="font-display text-[2.4rem] leading-none text-navy">Không tìm thấy sản phẩm phù hợp</h3>
+              <h3 className="font-display text-[1.7rem] leading-tight text-navy sm:text-[2rem] lg:text-[2.4rem] lg:leading-none">Không tìm thấy sản phẩm phù hợp</h3>
               <p className="mt-4 text-sm leading-7 text-slate-600">
                 Hãy thử thay đổi từ khóa, chất liệu hoặc khoảng giá để mở rộng kết quả.
               </p>
@@ -344,7 +351,7 @@ function ProductsPage() {
 
           {!loadingProducts && !errorMessage && products.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 2xl:grid-cols-3">
+              <div className={productGridClass}>
                 {products.map((product) => (
                   <ProductCard
                     key={product._id || product.slug}
@@ -355,7 +362,7 @@ function ProductsPage() {
                 ))}
               </div>
 
-              <div className="mt-10 flex flex-col gap-4 rounded-[28px] border border-[#ebe4d8] bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="mt-6 flex flex-col gap-4 rounded-[24px] border border-[#ebe4d8] bg-white p-4 sm:mt-8 sm:flex-row sm:items-center sm:justify-between lg:mt-10 lg:rounded-[28px] lg:p-5">
                 <p className="text-sm text-slate-600">
                   Trang <span className="font-semibold text-navy">{pagination.page}</span> trên{' '}
                   <span className="font-semibold text-navy">{pagination.totalPages}</span>

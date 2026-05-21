@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import AdminModal from '../components/admin/AdminModal.jsx';
 import { Link, useNavigate } from 'react-router-dom';
 import DataTable from '../components/admin/DataTable.jsx';
@@ -241,7 +241,6 @@ function AdminDashboardPage() {
   const [dashboard, setDashboard] = useState(null);
   const [coupons, setCoupons] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [exportingRevenue, setExportingRevenue] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportMode, setExportMode] = useState('month');
@@ -256,34 +255,6 @@ function AdminDashboardPage() {
   const [selectedRevenueDay, setSelectedRevenueDay] = useState(currentDate.getDate());
   const [lastUpdated, setLastUpdated] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
-
-  const loadDashboard = useCallback(
-    async ({ silent = false } = {}) => {
-      try {
-        if (silent) {
-          setRefreshing(true);
-        } else {
-          setLoading(true);
-        }
-        setErrorMessage('');
-
-        const [dashboardResponse, couponsResponse] = await Promise.all([
-          getAdminDashboard(token, { year: chartYear }),
-          getCoupons(token).catch(() => ({ coupons: [] }))
-        ]);
-
-        setDashboard(dashboardResponse);
-        setCoupons(couponsResponse.coupons || []);
-        setLastUpdated(new Date());
-      } catch (error) {
-        setErrorMessage(error.response?.data?.message || 'Không thể tải tổng quan quản trị.');
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [chartYear, token]
-  );
 
   useEffect(() => {
     let isMounted = true;
@@ -427,9 +398,6 @@ function AdminDashboardPage() {
             <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
               {loading ? 'Đang tải dữ liệu...' : `Cập nhật: ${formatDateTime(lastUpdated)}`}
             </div>
-            <button type="button" onClick={() => loadDashboard({ silent: true })} disabled={loading || refreshing} className="btn-secondary">
-              {refreshing ? 'Đang làm mới...' : 'Làm mới dữ liệu'}
-            </button>
             <button type="button" onClick={() => setExportModalOpen(true)} className="btn-outline">
               Export Excel
             </button>

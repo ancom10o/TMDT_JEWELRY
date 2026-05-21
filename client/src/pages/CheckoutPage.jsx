@@ -1,10 +1,10 @@
 /* eslint-disable react/prop-types */
 import { useEffect, useMemo, useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import AddressAutocompleteField from '../components/AddressAutocompleteField.jsx';
 import { useAuth } from '../hooks/useAuth.js';
 import { useCart } from '../hooks/useCart.js';
-import { createOrder, getPublicAssetUrl } from '../services/api.js';
+import { createOrder, getPublicAssetUrl, validateCoupon } from '../services/api.js';
 import { getDistrictsByProvince, getProvinces, getWardsByDistrict } from '../services/vietnamAddress.js';
 import { formatCurrency } from '../utils/format.js';
 
@@ -20,6 +20,18 @@ const PAYMENT_OPTIONS = [
     description: 'Đặt hàng trước, nhận thông tin chuyển khoản sau khi tạo đơn.'
   }
 ];
+const BUY_NOW_STORAGE_KEY = 'jewelaura_buy_now_item';
+const FREE_SHIPPING_MIN_TOTAL = 1000000;
+const STANDARD_SHIPPING_FEE = 30000;
+
+function getDisplayOrderCode(order) {
+  return order?.orderCode || order?._id?.slice(-6).toUpperCase() || '--';
+}
+
+async function copyText(value) {
+  if (!value) return;
+  await globalThis.navigator?.clipboard?.writeText(value);
+}
 
 function stripVietnamese(value) {
   return String(value || '')
@@ -48,6 +60,11 @@ function filterOptions(options, keyword) {
   }
 
   return options.filter((option) => stripVietnamese(option.name).includes(normalizedKeyword));
+}
+
+function calculateShippingFee(totalBeforeDiscount) {
+  const safeTotal = Math.max(Number(totalBeforeDiscount) || 0, 0);
+  return safeTotal >= FREE_SHIPPING_MIN_TOTAL ? 0 : STANDARD_SHIPPING_FEE;
 }
 
 function createInitialForm() {
@@ -131,13 +148,12 @@ function CheckoutItem({ item }) {
 }
 
 function CheckoutPage() {
-  const { token, isAuthenticated } = useAuth();
+  const [searchParams] = useSearchParams();
+  const { token, user, isAuthenticated } = useAuth();
   const {
     cartItems,
-    totalQuantity,
-    totalPrice,
+    selectedCartItems,
     discountAmount,
-    finalTotal,
     appliedCoupon,
     couponStatus,
     isCouponLoading,
@@ -145,7 +161,7 @@ function CheckoutPage() {
     removeCoupon,
     clearCouponStatus,
     isInitialized,
-    clearCart
+    clearSelectedAfterCheckout
   } = useCart();
 
   const [formValues, setFormValues] = useState(createInitialForm);
@@ -154,6 +170,9 @@ function CheckoutPage() {
   const [createdOrder, setCreatedOrder] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [couponCode, setCouponCode] = useState('');
+  const [buyNowCoupon, setBuyNowCoupon] = useState(null);
+  const [buyNowCouponStatus, setBuyNowCouponStatus] = useState({ type: '', message: '' });
+  const [isBuyNowCouponLoading, setIsBuyNowCouponLoading] = useState(false);
 
   const [provinces, setProvinces] = useState([]);
   const [districts, setDistricts] = useState([]);
@@ -167,6 +186,35 @@ function CheckoutPage() {
   const [isDistrictLoading, setIsDistrictLoading] = useState(false);
   const [isWardLoading, setIsWardLoading] = useState(false);
   const [addressLoadError, setAddressLoadError] = useState('');
+  const [buyNowItem, setBuyNowItem] = useState(null);
+  const [isBuyNowChecked, setIsBuyNowChecked] = useState(false);
+  const isBuyNowMode = searchParams.get('mode') === 'buy-now';
+  const activeCoupon = isBuyNowMode ? buyNowCoupon : appliedCoupon;
+  const activeDiscountAmount = isBuyNowMode ? buyNowCoupon?.discountAmount || 0 : discountAmount;
+  const activeCouponStatus = isBuyNowMode ? buyNowCouponStatus : couponStatus;
+  const isActiveCouponLoading = isBuyNowMode ? isBuyNowCouponLoading : isCouponLoading;
+  const checkoutItems = isBuyNowMode && buyNowItem ? [buyNowItem] : selectedCartItems;
+  const checkoutTotalQuantity = checkoutItems.reduce((sum, item) => sum + item.quantity, 0);
+  const checkoutSubtotal = checkoutItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const shippingFee = calculateShippingFee(checkoutSubtotal);
+  const checkoutFinalTotal = Math.max(checkoutSubtotal - activeDiscountAmount, 0) + shippingFee;
+
+  useEffect(() => {
+    if (!isBuyNowMode) {
+      setBuyNowItem(null);
+      setIsBuyNowChecked(true);
+      return;
+    }
+
+    try {
+      const storedItem = globalThis.sessionStorage?.getItem(BUY_NOW_STORAGE_KEY);
+      setBuyNowItem(storedItem ? JSON.parse(storedItem) : null);
+    } catch {
+      setBuyNowItem(null);
+    } finally {
+      setIsBuyNowChecked(true);
+    }
+  }, [isBuyNowMode]);
 
   useEffect(() => {
     let isMounted = true;
@@ -208,10 +256,42 @@ function CheckoutPage() {
   }, [appliedCoupon]);
 
   useEffect(() => {
+    if (!isBuyNowMode) {
+      return;
+    }
+
+    if (buyNowCoupon?.code) {
+      setCouponCode(buyNowCoupon.code);
+      return;
+    }
+
+    setCouponCode('');
+  }, [buyNowCoupon, isBuyNowMode]);
+
+  useEffect(() => {
     return () => {
       clearCouponStatus();
     };
   }, [clearCouponStatus]);
+
+  useEffect(() => {
+    if (!user || createdOrder) {
+      return;
+    }
+
+    setFormValues((currentValues) => ({
+      ...currentValues,
+      fullName: currentValues.fullName || user.fullName || '',
+      phone: currentValues.phone || user.phone || '',
+      province: currentValues.province || user.city || '',
+      district: currentValues.district || user.district || '',
+      ward: currentValues.ward || user.ward || '',
+      streetAddress: currentValues.streetAddress || user.addressLine || user.address || ''
+    }));
+    if (user.city) setSelectedProvinceCode('profile');
+    if (user.district) setSelectedDistrictCode('profile');
+    if (user.ward) setSelectedWardCode('profile');
+  }, [createdOrder, user]);
 
   const provinceOptions = useMemo(
     () => filterOptions(provinces, formValues.province),
@@ -244,6 +324,23 @@ function CheckoutPage() {
   function handleFieldChange(event) {
     const { name, value } = event.target;
     updateField(name, value);
+  }
+
+  function handlePhoneBlur() {
+    if (!formValues.phone.trim()) {
+      setFormErrors((currentErrors) => ({
+        ...currentErrors,
+        phone: 'Vui lòng nhập số điện thoại.'
+      }));
+      return;
+    }
+
+    if (!isValidVietnamPhone(formValues.phone)) {
+      setFormErrors((currentErrors) => ({
+        ...currentErrors,
+        phone: 'Số điện thoại Việt Nam không hợp lệ.'
+      }));
+    }
   }
 
   async function handleProvinceSelect(option) {
@@ -354,6 +451,64 @@ function CheckoutPage() {
     updateField('ward', value);
   }
 
+  async function handleApplyCoupon() {
+    if (!isBuyNowMode) {
+      await applyCouponCode(couponCode);
+      return;
+    }
+
+    const normalizedCode = String(couponCode || '').trim().toUpperCase();
+
+    if (!normalizedCode) {
+      setBuyNowCouponStatus({ type: 'error', message: 'Vui lòng nhập mã giảm giá.' });
+      return;
+    }
+
+    if (checkoutSubtotal <= 0) {
+      setBuyNowCouponStatus({ type: 'error', message: 'Không thể áp dụng mã khi chưa có sản phẩm thanh toán.' });
+      return;
+    }
+
+    setIsBuyNowCouponLoading(true);
+    setBuyNowCouponStatus({ type: '', message: '' });
+
+    try {
+      const response = await validateCoupon({
+        code: normalizedCode,
+        orderTotal: checkoutSubtotal
+      });
+
+      setBuyNowCoupon({
+        ...response.coupon,
+        discountAmount: response.discountAmount,
+        finalTotal: response.finalTotal
+      });
+      setBuyNowCouponStatus({
+        type: 'success',
+        message: `Đã áp dụng mã ${response.coupon.code} thành công.`
+      });
+    } catch (error) {
+      setBuyNowCoupon(null);
+      setBuyNowCouponStatus({
+        type: 'error',
+        message: error.response?.data?.message || 'Không thể áp dụng mã giảm giá.'
+      });
+    } finally {
+      setIsBuyNowCouponLoading(false);
+    }
+  }
+
+  function handleRemoveCoupon() {
+    if (!isBuyNowMode) {
+      removeCoupon();
+      return;
+    }
+
+    setBuyNowCoupon(null);
+    setCouponCode('');
+    setBuyNowCouponStatus({ type: 'info', message: 'Đã hủy mã giảm giá.' });
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
 
@@ -373,8 +528,8 @@ function CheckoutPage() {
       return;
     }
 
-    if (cartItems.length === 0) {
-      setSubmitError('Giỏ hàng đang trống, không thể tạo đơn hàng.');
+    if (checkoutItems.length === 0) {
+      setSubmitError('Vui lòng chọn sản phẩm trong giỏ hàng trước khi thanh toán.');
       return;
     }
 
@@ -384,7 +539,7 @@ function CheckoutPage() {
     try {
       const response = await createOrder(
         {
-          items: cartItems.map((item) => ({
+          items: checkoutItems.map((item) => ({
             productId: item.productId,
             quantity: item.quantity,
             selectedSize: item.selectedSize || ''
@@ -399,13 +554,17 @@ function CheckoutPage() {
             note: formValues.note
           },
           paymentMethod: formValues.paymentMethod,
-          couponCode: appliedCoupon?.code || ''
+          couponCode: activeCoupon?.code || ''
         },
         token
       );
 
       setCreatedOrder(response.order);
-      await clearCart();
+      if (isBuyNowMode) {
+        globalThis.sessionStorage?.removeItem(BUY_NOW_STORAGE_KEY);
+      } else {
+        await clearSelectedAfterCheckout();
+      }
     } catch (error) {
       setSubmitError(error.response?.data?.message || 'Không thể tạo đơn hàng lúc này.');
     } finally {
@@ -413,7 +572,7 @@ function CheckoutPage() {
     }
   }
 
-  if (!isInitialized) {
+  if (!isInitialized || (isBuyNowMode && !isBuyNowChecked)) {
     return (
       <section className="container-page py-10 sm:py-12">
         <div className="state-loading">Đang tải thông tin thanh toán...</div>
@@ -422,6 +581,11 @@ function CheckoutPage() {
   }
 
   if (createdOrder) {
+    const displayOrderCode = getDisplayOrderCode(createdOrder);
+    const isBankTransferOrder = createdOrder.paymentMethod === 'bank_transfer';
+    const bankAccount = createdOrder.bankTransferAccountNumber || 'YOUR_TECHCOMBANK_ACCOUNT';
+    const accountName = createdOrder.bankTransferAccountName || 'YOUR_ACCOUNT_NAME';
+
     return (
       <section className="container-page py-10 sm:py-12">
         <div className="surface-card mx-auto max-w-3xl p-6 sm:p-8">
@@ -433,7 +597,7 @@ function CheckoutPage() {
             </p>
           ) : null}
           <p className="mt-4 text-slate-600">
-            Mã đơn hàng: <span className="font-semibold text-navy">{createdOrder._id}</span>
+            Mã đơn hàng: <span className="font-semibold text-navy">{displayOrderCode}</span>
           </p>
           <p className="mt-2 text-slate-600">
             Tạm tính: <span className="font-semibold text-navy">{formatCurrency(createdOrder.totalBeforeDiscount)}</span>
@@ -442,11 +606,50 @@ function CheckoutPage() {
             Giảm giá: <span className="font-semibold text-emerald-700">-{formatCurrency(createdOrder.discountAmount)}</span>
           </p>
           <p className="mt-2 text-slate-600">
+            Phí vận chuyển: <span className="font-semibold text-navy">{createdOrder.shippingFee > 0 ? formatCurrency(createdOrder.shippingFee) : 'Miễn phí'}</span>
+          </p>
+          <p className="mt-2 text-slate-600">
             Mã giảm giá: <span className="font-semibold text-navy">{createdOrder.couponCode || 'Không có'}</span>
           </p>
           <p className="mt-2 text-slate-600">
             Tổng thanh toán: <span className="font-semibold text-navy">{formatCurrency(createdOrder.totalPrice)}</span>
           </p>
+
+          {isBankTransferOrder ? (
+            <div className="mt-8 rounded-[28px] border border-[#e8dcc0] bg-[#fff9ec] p-5">
+              <h2 className="text-xl font-semibold text-navy">Quét mã để thanh toán</h2>
+              <p className="mt-2 text-sm text-slate-600">
+                Vui lòng chuyển đúng số tiền và đúng nội dung để đơn hàng được xác nhận.
+              </p>
+
+              <div className="mt-5 grid gap-6 md:grid-cols-[320px_minmax(0,1fr)] md:items-center">
+                {createdOrder.bankTransferQrUrl ? (
+                  <img
+                    src={createdOrder.bankTransferQrUrl}
+                    alt={`QR thanh toán ${displayOrderCode}`}
+                    className="mx-auto h-[280px] w-[280px] rounded-2xl border border-slate-200 bg-white object-contain p-3 sm:h-[320px] sm:w-[320px]"
+                  />
+                ) : null}
+
+                <div className="space-y-3 text-sm text-slate-600">
+                  <p><span className="font-semibold text-navy">Ngân hàng:</span> {createdOrder.bankTransferBankName || 'Techcombank'}</p>
+                  <p><span className="font-semibold text-navy">Số tài khoản:</span> {bankAccount}</p>
+                  <p><span className="font-semibold text-navy">Chủ tài khoản:</span> {accountName}</p>
+                  <p><span className="font-semibold text-navy">Số tiền:</span> {formatCurrency(createdOrder.totalPrice)}</p>
+                  <p><span className="font-semibold text-navy">Nội dung chuyển khoản:</span> {createdOrder.bankTransferContent || displayOrderCode}</p>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <button type="button" onClick={() => copyText(createdOrder.bankTransferContent || displayOrderCode)} className="btn-outline !px-4 !py-2">
+                      Copy nội dung
+                    </button>
+                    <button type="button" onClick={() => copyText(bankAccount)} className="btn-outline !px-4 !py-2">
+                      Copy số tài khoản
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link to="/products" className="btn-secondary">
@@ -461,7 +664,7 @@ function CheckoutPage() {
     );
   }
 
-  if (cartItems.length === 0) {
+  if ((!isBuyNowMode && cartItems.length === 0) || checkoutItems.length === 0) {
     return <Navigate to="/cart" replace />;
   }
 
@@ -489,7 +692,7 @@ function CheckoutPage() {
 
             <label className="block">
               <span className="field-label">Số điện thoại *</span>
-              <input name="phone" value={formValues.phone} onChange={handleFieldChange} className="input-field" placeholder="09xxxxxxxx" />
+              <input name="phone" value={formValues.phone} onChange={handleFieldChange} onBlur={handlePhoneBlur} className="input-field" placeholder="09xxxxxxxx" />
               {formErrors.phone ? <span className="helper-error">{formErrors.phone}</span> : null}
             </label>
 
@@ -605,11 +808,11 @@ function CheckoutPage() {
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-gold">Đơn Hàng</p>
               <h2 className="mt-2 text-2xl font-bold text-navy">Sản phẩm trong giỏ</h2>
             </div>
-            <span className="rounded-full bg-[#fff4d6] px-3 py-1 text-sm font-semibold text-navy">{totalQuantity} sp</span>
+            <span className="rounded-full bg-[#fff4d6] px-3 py-1 text-sm font-semibold text-navy">{checkoutTotalQuantity} sp</span>
           </div>
 
           <div className="mt-6 space-y-3">
-            {cartItems.map((item) => (
+            {checkoutItems.map((item) => (
               <CheckoutItem key={item.serverItemId || item.id || item.productId} item={item} />
             ))}
           </div>
@@ -617,7 +820,7 @@ function CheckoutPage() {
           <div className="mt-6 rounded-[24px] border border-[#e8dcc0] bg-[linear-gradient(135deg,_rgba(255,249,236,0.96),_rgba(255,255,255,0.98))] p-4">
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-gold">Mã Giảm Giá</p>
-              {appliedCoupon?.code ? <span className="text-xs font-semibold text-emerald-700">{appliedCoupon.code}</span> : null}
+              {activeCoupon?.code ? <span className="text-xs font-semibold text-emerald-700">{activeCoupon.code}</span> : null}
             </div>
 
             <div className="mt-4 flex flex-col gap-3">
@@ -630,33 +833,33 @@ function CheckoutPage() {
               <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
                 <button
                   type="button"
-                  onClick={() => applyCouponCode(couponCode)}
-                  disabled={isCouponLoading}
+                  onClick={handleApplyCoupon}
+                  disabled={isActiveCouponLoading}
                   className="rounded-full bg-navy px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {isCouponLoading ? 'Đang kiểm tra...' : 'Áp dụng mã'}
+                  {isActiveCouponLoading ? 'Đang kiểm tra...' : 'Áp dụng mã'}
                 </button>
-                {appliedCoupon ? (
-                  <button type="button" onClick={() => removeCoupon()} className="rounded-full border border-slate-300 px-4 py-3 text-sm font-semibold text-navy transition hover:bg-white">
+                {activeCoupon ? (
+                  <button type="button" onClick={handleRemoveCoupon} className="rounded-full border border-slate-300 px-4 py-3 text-sm font-semibold text-navy transition hover:bg-white">
                     Hủy mã
                   </button>
                 ) : null}
               </div>
             </div>
 
-            {couponStatus.message ? (
+            {activeCouponStatus.message ? (
               <div
                 className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
-                  couponStatus.type === 'success'
+                  activeCouponStatus.type === 'success'
                     ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                    : couponStatus.type === 'warning'
+                    : activeCouponStatus.type === 'warning'
                       ? 'border-amber-200 bg-amber-50 text-amber-700'
-                      : couponStatus.type === 'info'
+                      : activeCouponStatus.type === 'info'
                         ? 'border-slate-200 bg-slate-50 text-slate-700'
                         : 'border-red-200 bg-red-50 text-red-700'
                 }`}
               >
-                {couponStatus.message}
+                {activeCouponStatus.message}
               </div>
             ) : null}
           </div>
@@ -665,23 +868,25 @@ function CheckoutPage() {
           <div className="mt-6 border-t border-slate-200 pt-5">
             <div className="flex items-center justify-between text-sm text-slate-600">
               <span>Tạm tính</span>
-              <span className="font-semibold text-navy">{formatCurrency(totalPrice)}</span>
+              <span className="font-semibold text-navy">{formatCurrency(checkoutSubtotal)}</span>
             </div>
             <div className="mt-3 flex items-center justify-between text-sm text-slate-600">
               <span>Mã giảm giá</span>
-              <span className="font-semibold text-navy">{appliedCoupon?.code || 'Chưa áp dụng'}</span>
+              <span className="font-semibold text-navy">{activeCoupon?.code || 'Chưa áp dụng'}</span>
             </div>
             <div className="mt-3 flex items-center justify-between text-sm text-slate-600">
               <span>Giảm giá</span>
-              <span className="font-semibold text-emerald-700">-{formatCurrency(discountAmount)}</span>
+              <span className="font-semibold text-emerald-700">-{formatCurrency(activeDiscountAmount)}</span>
             </div>
             <div className="mt-3 flex items-center justify-between text-sm text-slate-600">
               <span>Phí vận chuyển</span>
-              <span className="font-semibold text-slate-500">Tính ở bước GHN sau</span>
+              <span className={`font-semibold ${shippingFee > 0 ? 'text-navy' : 'text-emerald-700'}`}>
+                {shippingFee > 0 ? formatCurrency(shippingFee) : 'Miễn phí'}
+              </span>
             </div>
             <div className="mt-4 flex items-center justify-between border-t border-slate-200 pt-4">
               <span className="text-base font-semibold text-navy">Tổng thanh toán</span>
-              <span className="text-2xl font-bold text-navy">{formatCurrency(finalTotal)}</span>
+              <span className="text-2xl font-bold text-navy">{formatCurrency(checkoutFinalTotal)}</span>
             </div>
           </div>
         </aside>

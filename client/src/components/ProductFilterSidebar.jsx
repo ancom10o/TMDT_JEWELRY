@@ -19,9 +19,9 @@ function ProductFilterSidebar({
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="eyebrow">Bộ lọc</p>
-          <h3 className="mt-2 font-display text-[2rem] leading-none text-navy">
-            Chọn theo nhu cầu
-          </h3>
+          <h3 className="mt-2 font-display text-[1.1rem] leading-snug text-navy lg:text-[1.45rem]">
+  Chọn theo nhu cầu
+</h3>
         </div>
 
         {/* <button

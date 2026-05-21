@@ -71,7 +71,7 @@ function HomePage() {
   }, []);
 
   return (
-    <div className="pb-10">
+    <div className="pb-7 lg:pb-10">
       {errorMessage ? (
         <div className="container-page pt-8">
           <div className="state-error">{errorMessage}</div>
@@ -79,21 +79,21 @@ function HomePage() {
       ) : null}
 
       {isLoading ? (
-        <div className="space-y-5 px-3 pt-2 sm:px-4 sm:pt-3 lg:px-5 xl:px-6">
-          <div className="skeleton-block h-[260px] rounded-[28px] sm:h-[340px] lg:h-[420px]" />
-          <div className="container-page grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="space-y-4 px-3 pt-2 sm:px-4 sm:pt-3 lg:space-y-5 lg:px-5 xl:px-6">
+          <div className="skeleton-block h-[220px] rounded-[24px] sm:h-[300px] lg:h-[420px] lg:rounded-[28px]" />
+          <div className="container-page grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 lg:gap-5">
             {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="skeleton-block h-[280px] rounded-[28px]" />
+              <div key={index} className="skeleton-block h-[190px] rounded-[22px] sm:h-[240px] lg:h-[280px] lg:rounded-[28px]" />
             ))}
           </div>
         </div>
       ) : sections.length > 0 ? (
         sections.map(renderSection)
       ) : (
-        <section className="container-page py-12 sm:py-16">
-          <div className="rounded-[34px] border border-[#ebe4d8] bg-[linear-gradient(135deg,_#fffdf8_0%,_#f8f2e3_52%,_#f4efe8_100%)] p-8 text-center shadow-[0_18px_60px_rgba(15,23,42,0.05)] sm:p-10">
+        <section className="container-page py-8 sm:py-12 lg:py-16">
+          <div className="rounded-[24px] border border-[#ebe4d8] bg-[linear-gradient(135deg,_#fffdf8_0%,_#f8f2e3_52%,_#f4efe8_100%)] p-5 text-center shadow-[0_18px_60px_rgba(15,23,42,0.05)] sm:p-8 lg:rounded-[34px] lg:p-10">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gold">Homepage CMS</p>
-            <h2 className="mt-4 font-display text-[2.4rem] leading-none text-navy sm:text-[3rem]">
+            <h2 className="mt-4 font-display text-[1.8rem] leading-tight text-navy sm:text-[2.3rem] lg:text-[3rem] lg:leading-none">
               Homepage dang cho duoc cau hinh
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-600 sm:text-[15px]">

@@ -193,7 +193,7 @@ h3,
   }
 
   .section-shell {
-    @apply py-10 sm:py-11 lg:py-12;
+    @apply py-7 sm:py-9 lg:py-12;
   }
 
   .eyebrow {
@@ -201,11 +201,11 @@ h3,
   }
 
   .section-title {
-    @apply mt-2 font-display text-[1.65rem] font-semibold leading-tight text-navy sm:text-[2rem] lg:text-[2.35rem];
+    @apply mt-2 font-display text-[1.45rem] font-semibold leading-tight text-navy sm:text-[1.85rem] lg:text-[2.35rem];
   }
 
   .section-copy {
-    @apply mt-3 max-w-2xl text-sm leading-6 text-slate-600 sm:text-[15px];
+    @apply mt-2 max-w-2xl text-sm leading-6 text-slate-600 sm:mt-3 sm:text-[15px];
   }
 
   .premium-scrollbar::-webkit-scrollbar {

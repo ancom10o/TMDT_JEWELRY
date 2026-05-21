@@ -68,7 +68,7 @@ function ProductSliderSection({ section }) {
   const visibleSlides = {
     desktop: Math.min(4, products.length),
     tablet: Math.min(2, products.length),
-    mobile: 1
+    mobile: Math.min(1.12, products.length)
   };
 
   return (

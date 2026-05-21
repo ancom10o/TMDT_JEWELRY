@@ -116,10 +116,52 @@ const orderSchema = new mongoose.Schema(
       type: shippingAddressSchema,
       required: true
     },
+    orderCode: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+      uppercase: true
+    },
     paymentMethod: {
       type: String,
       enum: ['cod', 'bank_transfer', 'credit_card', 'momo'],
       default: 'cod'
+    },
+    paymentStatus: {
+      type: String,
+      enum: ['unpaid', 'pending', 'paid', 'failed'],
+      default: 'unpaid'
+    },
+    bankTransferContent: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    bankTransferBankCode: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    bankTransferBankName: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    bankTransferAccountNumber: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    bankTransferAccountName: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    bankTransferQrUrl: {
+      type: String,
+      trim: true,
+      default: ''
     },
     couponCode: {
       type: String,
@@ -133,6 +175,11 @@ const orderSchema = new mongoose.Schema(
       min: 0
     },
     totalBeforeDiscount: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    shippingFee: {
       type: Number,
       default: 0,
       min: 0
@@ -152,6 +199,10 @@ const orderSchema = new mongoose.Schema(
       default: false
     },
     paidAt: {
+      type: Date,
+      default: null
+    },
+    completedAt: {
       type: Date,
       default: null
     }

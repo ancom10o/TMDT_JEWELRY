@@ -2,39 +2,48 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getPublicAssetUrl } from '../services/api.js';
+import { formatCurrency } from '../utils/format.js';
 import { getGenderLabel, getProductMaterialLabel } from '../utils/productFilters.js';
-import PriceDisplay from './PriceDisplay.jsx';
 
 function ProductCard({ product, mode = 'listing', onAddToCart, isSyncing = false }) {
   const [imageFailed, setImageFailed] = useState(false);
   const imageUrl = getPublicAssetUrl(product.images?.[0]);
   const comparePrice = product.originalPrice || product.oldPrice || 0;
   const discountPercent = product.discountPercent || (comparePrice > product.price ? Math.round(((comparePrice - product.price) / comparePrice) * 100) : 0);
-  const badgeLabel = discountPercent > 0 ? `-${discountPercent}%` : product.isNew ? 'Mới' : product.sold > 30 ? 'Bán chạy' : '';
+  const badgeLabel = discountPercent > 0 ? `-${discountPercent}%` : product.isNew ? 'Mới' : '';
   const compact = mode === 'compact';
   const materialLabel = getProductMaterialLabel(product);
   const genderLabel = getGenderLabel(product.gender);
+  const metadata = [materialLabel, genderLabel].filter(Boolean).join(' · ');
+  const lowStock = Number(product.stock) > 0 && Number(product.stock) <= 3;
+  const ctaLabel = onAddToCart ? 'Xem chi tiết' : 'Khám phá ngay';
 
   return (
-    <article className="group flex h-full min-h-[100%] flex-col overflow-hidden rounded-[24px] border border-[#e4ebf3] bg-white shadow-[0_14px_34px_rgba(15,23,42,0.045)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_44px_rgba(15,23,42,0.07)]">
+    <article className="group flex h-full min-h-[100%] flex-col overflow-hidden rounded-[18px] border border-[#e8eef5] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.035)] transition duration-300 hover:-translate-y-1 hover:border-[#e3d6b5] hover:shadow-[0_22px_55px_rgba(15,23,42,0.075)] sm:rounded-[22px] lg:rounded-[24px]">
       <Link
         to={`/products/${product.slug}`}
-        className={`relative block overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(203,213,225,0.28),_transparent_38%),linear-gradient(180deg,_#ffffff_0%,_#f3f7fb_100%)] ${
-          compact ? 'p-3' : 'p-3.5'
+        className={`relative block overflow-hidden bg-[radial-gradient(circle_at_50%_0%,_rgba(212,175,55,0.14),_transparent_34%),linear-gradient(180deg,_#ffffff_0%,_#f6f8fb_100%)] ${
+          compact ? 'p-2.5 sm:p-3' : 'p-2.5 sm:p-3 lg:p-3.5'
         }`}
       >
         {badgeLabel ? (
-          <span className="absolute left-3.5 top-3.5 z-10 rounded-full border border-white/60 bg-[#fffaf0]/95 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-navy shadow-sm">
+          <span className="absolute left-2.5 top-2.5 z-10 rounded-full border border-gold/25 bg-white/90 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-[#9a761e] shadow-sm sm:left-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-[10px] lg:left-3.5 lg:top-3.5">
             {badgeLabel}
           </span>
         ) : null}
 
-        <div className="aspect-square max-h-[250px] overflow-hidden rounded-[20px] border border-white/70 bg-white/85">
+        {lowStock ? (
+          <span className="absolute right-2.5 top-2.5 z-10 rounded-full border border-amber-200 bg-white/90 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-amber-700 shadow-sm sm:right-3 sm:top-3 lg:right-3.5 lg:top-3.5">
+            Sắp hết
+          </span>
+        ) : null}
+
+        <div className="aspect-square max-h-[250px] overflow-hidden rounded-[16px] border border-white/80 bg-white/88 p-2.5 sm:p-3 lg:rounded-[20px] lg:p-4">
           {imageUrl && !imageFailed ? (
             <img
               src={imageUrl}
               alt={product.name}
-              className="h-full w-full object-cover object-center transition duration-500 ease-out group-hover:scale-[1.045]"
+              className="h-full w-full object-contain object-center transition duration-500 ease-out group-hover:scale-[1.035]"
               onError={() => setImageFailed(true)}
             />
           ) : (
@@ -47,65 +56,60 @@ function ProductCard({ product, mode = 'listing', onAddToCart, isSyncing = false
         </div>
       </Link>
 
-      <div className={`flex h-full flex-1 flex-col ${compact ? 'p-3.5' : 'p-4'}`}>
-        <div className="min-h-[16px]">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-            {product.category?.name || 'Trang sức'}
-          </p>
-        </div>
+      <div className={`flex h-full flex-1 flex-col ${compact ? 'p-3 sm:p-3.5' : 'p-3 sm:p-3.5 lg:p-4'}`}>
+        <p className="truncate text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400 sm:text-[10px] lg:text-[10px] lg:tracking-[0.16em]">
+          {product.category?.name || 'Trang sức'}
+        </p>
 
-        <Link to={`/products/${product.slug}`} className="mt-2 block min-h-[48px] transition hover:text-gold">
-          <h3 className={`line-clamp-2 font-sans font-semibold leading-6 tracking-normal text-navy transition ${compact ? 'text-[14px]' : 'text-[15px] sm:text-[16px]'}`}>
+        <Link to={`/products/${product.slug}`} className="mt-1.5 block min-h-[42px] transition hover:text-gold lg:mt-2 lg:min-h-[50px]">
+          <h3 className={`line-clamp-2 font-display font-semibold leading-snug tracking-normal text-navy transition ${compact ? 'text-[13px] sm:text-[14px]' : 'text-[13px] sm:text-[14px] lg:text-[16px]'}`}>
             {product.name}
           </h3>
         </Link>
 
-        <Link to={`/products/${product.slug}`} className="mt-3 flex min-h-[46px] items-end justify-between gap-3">
-          <div className="min-h-[40px]">
-            <PriceDisplay price={product.price} originalPrice={comparePrice} oldPrice={product.oldPrice} size={compact ? 'sm' : 'md'} />
-          </div>
-          {!compact ? (
-            <span className="pb-0.5 text-[11px] uppercase tracking-[0.16em] text-slate-400">
-              {product.stock > 0 ? 'Còn hàng' : 'Hết hàng'}
+        <Link to={`/products/${product.slug}`} className="mt-2 block min-h-[30px] lg:mt-2.5">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <span className={`${compact ? 'text-sm sm:text-base lg:text-lg' : 'text-base sm:text-lg lg:text-xl'} font-bold text-navy`}>
+              {formatCurrency(product.price)}
             </span>
-          ) : null}
+            {comparePrice > product.price ? (
+              <span className="text-[10px] text-slate-400 line-through sm:text-xs lg:text-sm">
+                {formatCurrency(comparePrice)}
+              </span>
+            ) : null}
+          </div>
         </Link>
 
-        <Link to={`/products/${product.slug}`} className="mt-2 flex min-h-[22px] items-center justify-between gap-2">
-          {!compact ? (
-            <>
-              <span className="truncate text-[11px] uppercase tracking-[0.16em] text-slate-400">{materialLabel || '\u00A0'}</span>
-              {genderLabel ? (
-                <span className="shrink-0 rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
-                  {genderLabel}
-                </span>
-              ) : null}
-            </>
-          ) : (
-            <span className="block h-[16px]" aria-hidden="true" />
-          )}
+        <Link to={`/products/${product.slug}`} className="mt-1.5 block min-h-[18px] lg:mt-2">
+          <span className="block truncate text-[10px] leading-5 text-slate-400 sm:text-[11px]">
+            {metadata || '\u00A0'}
+          </span>
         </Link>
 
-        <div className={`mt-auto grid gap-2 pt-3 ${onAddToCart ? 'sm:grid-cols-2' : 'place-items-center'}`}>
-          {onAddToCart ? (
-            <Link to={`/products/${product.slug}`} className="btn-outline w-full px-3.5 py-2.5 text-center text-sm">
-              Xem chi tiết
-            </Link>
-          ) : null}
+        <div className={`mt-auto flex items-center gap-2 pt-3 ${onAddToCart ? 'justify-between' : 'justify-center'} lg:pt-3.5`}>
+          <Link to={`/products/${product.slug}`} className="inline-flex min-h-9 flex-1 items-center justify-center rounded-full bg-navy px-3 py-2 text-center text-xs font-semibold text-white shadow-[0_12px_26px_rgba(15,23,42,0.14)] transition hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-[0_16px_34px_rgba(15,23,42,0.18)] sm:text-sm lg:min-h-10 lg:px-5">
+            {ctaLabel}
+          </Link>
+
           {onAddToCart ? (
             <button
               type="button"
               onClick={() => onAddToCart(product)}
               disabled={product.stock <= 0 || isSyncing}
-              className="btn-secondary w-full px-3.5 py-2.5 text-sm"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#d7e0ea] bg-white text-navy shadow-sm transition hover:-translate-y-0.5 hover:border-gold hover:bg-[#fff8eb] hover:text-[#9a761e] disabled:cursor-not-allowed disabled:opacity-45 lg:h-10 lg:w-10"
+              aria-label="Thêm vào giỏ hàng"
             >
-              {product.stock <= 0 ? 'Hết hàng' : 'Thêm vào giỏ'}
+              <svg aria-hidden="true" className="h-4 w-4 lg:h-5 lg:w-5" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M6.5 8h13l-1.2 7.4a2 2 0 0 1-2 1.6H9.1a2 2 0 0 1-2-1.7L5.8 5.8H3M9 20h.01M17 20h.01M12 11v4M10 13h4"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </button>
-          ) : (
-            <Link to={`/products/${product.slug}`} className="btn-secondary w-full max-w-[190px] px-5 py-2.5 text-center text-sm">
-              Khám phá ngay
-            </Link>
-          )}
+          ) : null}
         </div>
       </div>
     </article>

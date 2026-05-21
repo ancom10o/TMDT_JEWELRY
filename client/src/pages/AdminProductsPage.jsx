@@ -13,8 +13,9 @@ import {
   downloadAdminProductsExcel,
   getAdminProducts,
   getCategories,
-  getPublicAssetUrl,
-  updateProduct
+  getImageUrl,
+  updateProduct,
+  uploadProductImages
 } from '../services/api.js';
 import { formatCurrency, formatCurrencyInput } from '../utils/format.js';
 import {
@@ -102,7 +103,14 @@ function buildFormState(product) {
   };
 }
 
-function validateForm(formState) {
+function getFormImageList(formState, uploadedImages = []) {
+  return [
+    ...formState.images.split('\n').map((item) => item.trim()).filter(Boolean),
+    ...uploadedImages
+  ];
+}
+
+function validateForm(formState, imageFiles = []) {
   if (!formState.name.trim()) return 'Tên sản phẩm không được để trống.';
   if (!formState.slug.trim()) return 'Slug không được để trống.';
   if (!formState.description.trim()) return 'Mô tả không được để trống.';
@@ -125,13 +133,15 @@ function validateForm(formState) {
   if (!Number.isInteger(stock) || stock < 0) return 'Tồn kho phải là số nguyên lớn hơn hoặc bằng 0.';
   if (!Number.isInteger(sold) || sold < 0) return 'Số lượng đã bán phải là số nguyên lớn hơn hoặc bằng 0.';
 
-  const images = formState.images.split('\n').map((item) => item.trim()).filter(Boolean);
-  if (!images.length) return 'Cần ít nhất 1 ảnh sản phẩm.';
+  const images = getFormImageList(formState);
+  if (!images.length && imageFiles.length === 0) {
+    return 'Cần ít nhất 1 ảnh sản phẩm.';
+  }
 
   return '';
 }
 
-function buildPayload(formState) {
+function buildPayload(formState, uploadedImages = []) {
   const materialDetail = formState.materialDetail.trim();
   const size = formState.sizeMode === 'free'
     ? ['Free']
@@ -148,7 +158,7 @@ function buildPayload(formState) {
     costPrice: Number(formState.costPrice || 0),
     originalPrice: Number(formState.originalPrice || 0),
     price: Number(formState.price || 0),
-    images: formState.images.split('\n').map((item) => item.trim()).filter(Boolean),
+    images: getFormImageList(formState, uploadedImages),
     category: formState.category,
     material: materialDetail,
     materialGroup: formState.materialGroup,
@@ -199,6 +209,8 @@ function AdminProductsPage() {
   const [genderFilter, setGenderFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [formState, setFormState] = useState(initialFormState);
+  const [selectedImageFiles, setSelectedImageFiles] = useState([]);
+  const [imageFilePreviews, setImageFilePreviews] = useState([]);
   const [editingProduct, setEditingProduct] = useState(null);
   const [viewingProduct, setViewingProduct] = useState(null);
   const [productToDelete, setProductToDelete] = useState(null);
@@ -219,6 +231,19 @@ function AdminProductsPage() {
 
     return () => globalThis.clearTimeout(timer);
   }, [formErrorMessage]);
+
+  useEffect(() => {
+    const previews = selectedImageFiles.map((file) => ({
+      name: file.name,
+      url: globalThis.URL.createObjectURL(file)
+    }));
+
+    setImageFilePreviews(previews);
+
+    return () => {
+      previews.forEach((preview) => globalThis.URL.revokeObjectURL(preview.url));
+    };
+  }, [selectedImageFiles]);
 
   const loadProducts = useCallback(
     async (page = currentPage) => {
@@ -300,6 +325,7 @@ function AdminProductsPage() {
   function openCreateModal() {
     setEditingProduct(null);
     setFormState(initialFormState);
+    setSelectedImageFiles([]);
     setFormErrorMessage('');
     setIsFormOpen(true);
   }
@@ -307,6 +333,7 @@ function AdminProductsPage() {
   function openEditModal(product) {
     setEditingProduct(product);
     setFormState(buildFormState(product));
+    setSelectedImageFiles([]);
     setFormErrorMessage('');
     setIsFormOpen(true);
   }
@@ -331,9 +358,16 @@ function AdminProductsPage() {
     });
   }
 
+  function handleImageFilesChange(event) {
+    setSelectedImageFiles(Array.from(event.target.files || []));
+    if (formErrorMessage) {
+      setFormErrorMessage('');
+    }
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
-    const validationMessage = validateForm(formState);
+    const validationMessage = validateForm(formState, selectedImageFiles);
     if (validationMessage) {
       setFormErrorMessage(validationMessage);
       showToast({
@@ -349,7 +383,10 @@ function AdminProductsPage() {
       setSubmitting(true);
       setErrorMessage('');
       setFormErrorMessage('');
-      const payload = buildPayload(formState);
+      const uploadedImages = selectedImageFiles.length > 0
+        ? (await uploadProductImages(selectedImageFiles, token)).images || []
+        : [];
+      const payload = buildPayload(formState, uploadedImages);
 
       if (editingProduct) {
         const response = await updateProduct(editingProduct._id, payload, token);
@@ -365,6 +402,7 @@ function AdminProductsPage() {
       setIsFormOpen(false);
       setEditingProduct(null);
       setFormState(initialFormState);
+      setSelectedImageFiles([]);
       setFormErrorMessage('');
     } catch (error) {
       const message = error.response?.data?.message || 'Không thể lưu sản phẩm.';
@@ -507,7 +545,7 @@ function AdminProductsPage() {
                 <td className="px-5 py-4">
                   <div className="flex gap-3">
                     <div className="h-16 w-16 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-                      {product.images?.[0] ? <img src={getPublicAssetUrl(product.images[0])} alt={product.name} className="h-full w-full object-cover" /> : null}
+                      <img src={getImageUrl(product.images?.[0])} alt={product.name} className="h-full w-full object-cover" />
                     </div>
                     <div>
                       <p className="font-semibold text-navy">{product.name}</p>
@@ -710,7 +748,15 @@ function AdminProductsPage() {
             </label> */}
             <label className="md:col-span-2">
               <span className="field-label">Danh sách ảnh *</span>
-              <textarea name="images" value={formState.images} onChange={handleChange} rows="4" className="textarea-field" placeholder="Mỗi dòng là 1 URL ảnh" />
+              <textarea name="images" value={formState.images} onChange={handleChange} rows="4" className="textarea-field" placeholder="Mỗi dòng là 1 URL Cloudinary hoặc đường dẫn local /images/... /uploads/..." />
+              <span className="mt-2 block text-xs text-slate-500">Ảnh local cũ vẫn giữ nguyên. Ảnh file mới sẽ được upload lên Cloudinary khi bấm lưu.</span>
+            </label>
+            <label className="md:col-span-2">
+              <span className="field-label">Upload ảnh mới lên Cloudinary</span>
+              <input type="file" accept="image/*" multiple onChange={handleImageFilesChange} className="input-field" />
+              {selectedImageFiles.length > 0 ? (
+                <span className="mt-2 block text-xs text-slate-500">{selectedImageFiles.length} ảnh sẽ được upload khi lưu sản phẩm.</span>
+              ) : null}
             </label>
           </div>
 
@@ -729,12 +775,22 @@ function AdminProductsPage() {
             <div className="grid gap-3 sm:grid-cols-3">
               {previewImages.slice(0, 3).map((image) => (
                 <div key={image} className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-                  <img src={getPublicAssetUrl(image)} alt="Preview" className="h-32 w-full object-cover" />
+                  <img src={getImageUrl(image)} alt="Preview" className="h-32 w-full object-cover" />
                 </div>
               ))}
             </div>
           ) : null}
 
+
+          {imageFilePreviews.length > 0 ? (
+            <div className="grid gap-3 sm:grid-cols-3">
+              {imageFilePreviews.slice(0, 3).map((image) => (
+                <div key={image.url} className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                  <img src={image.url} alt={image.name} className="h-32 w-full object-cover" />
+                </div>
+              ))}
+            </div>
+          ) : null}
           <div className="flex justify-end gap-3">
             <button type="button" onClick={() => setIsFormOpen(false)} className="btn-outline">
               Hủy
@@ -757,7 +813,7 @@ function AdminProductsPage() {
           <div className="space-y-5">
             <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
               <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50">
-                {viewingProduct.images?.[0] ? <img src={getPublicAssetUrl(viewingProduct.images[0])} alt={viewingProduct.name} className="h-full w-full object-cover" /> : null}
+                <img src={getImageUrl(viewingProduct.images?.[0])} alt={viewingProduct.name} className="h-full w-full object-cover" />
               </div>
               <div className="space-y-3 text-sm text-slate-600">
                 <p><span className="font-semibold text-navy">Slug:</span> {viewingProduct.slug}</p>

@@ -41,6 +41,26 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: ''
     },
+    city: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    district: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    ward: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    addressLine: {
+      type: String,
+      trim: true,
+      default: ''
+    },
     role: {
       type: String,
       enum: ['user', 'admin'],

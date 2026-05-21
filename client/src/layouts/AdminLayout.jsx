@@ -1,8 +1,12 @@
 /* eslint-disable react/prop-types */
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
+import { useToast } from '../context/ToastContext.jsx';
 import { useAuth } from '../hooks/useAuth.js';
+import { getOrders } from '../services/api.js';
 
+const NEW_ORDER_POLL_INTERVAL_MS = 5000;
+const KNOWN_ADMIN_ORDER_IDS_KEY = 'jewelaura_admin_known_order_ids';
 const adminMenuItems = [
   { label: 'Tổng quan', path: '/admin', icon: '◇' },
   { label: 'Homepage CMS', path: '/admin/homepage', icon: '▣' },
@@ -12,6 +16,37 @@ const adminMenuItems = [
   { label: 'Người dùng', path: '/admin/users', icon: '○' },
   { label: 'Mã giảm giá', path: '/admin/coupons', icon: '%' },
 ];
+
+function getDisplayOrderCode(order) {
+  return order?.orderCode || order?._id?.slice(-6).toUpperCase() || '--';
+}
+
+function readKnownAdminOrderIds() {
+  if (typeof globalThis.localStorage === 'undefined') {
+    return null;
+  }
+
+  try {
+    const storedValue = globalThis.localStorage.getItem(KNOWN_ADMIN_ORDER_IDS_KEY);
+
+    if (storedValue === null) {
+      return null;
+    }
+
+    const parsedValue = JSON.parse(storedValue);
+    return Array.isArray(parsedValue) ? new Set(parsedValue.filter(Boolean)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function saveKnownAdminOrderIds(orderIds) {
+  if (typeof globalThis.localStorage === 'undefined') {
+    return;
+  }
+
+  globalThis.localStorage.setItem(KNOWN_ADMIN_ORDER_IDS_KEY, JSON.stringify([...orderIds]));
+}
 
 function AdminSidebar({ onNavigate }) {
   return (
@@ -57,8 +92,62 @@ function AdminSidebar({ onNavigate }) {
 }
 
 function AdminLayout() {
-  const { user } = useAuth();
+  const { token, user } = useAuth();
+  const { showToast } = useToast();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const knownOrderIdsRef = useRef(new Set());
+  const hasInitializedOrderWatchRef = useRef(false);
+
+  function handleRefreshPage() {
+    setIsRefreshing(true);
+    globalThis.location.reload();
+  }
+
+  const checkNewOrders = useCallback(
+    async () => {
+      if (!token) {
+        return;
+      }
+
+      try {
+        const response = await getOrders(token);
+        const orders = response.orders || [];
+        const nextOrderIds = new Set(orders.map((order) => order._id));
+        const newOrders = orders.filter((order) => !knownOrderIdsRef.current.has(order._id));
+
+        if (hasInitializedOrderWatchRef.current && newOrders.length > 0) {
+          showToast({
+            title: newOrders.length === 1 ? 'Có đơn hàng mới' : `Có ${newOrders.length} đơn hàng mới`,
+            description: newOrders.length === 1 ? `Đơn #${getDisplayOrderCode(newOrders[0])} vừa được tạo.` : 'Vào mục Đơn hàng để xử lý các đơn mới.',
+            type: 'order',
+            duration: 6000
+          });
+        }
+
+        knownOrderIdsRef.current = nextOrderIds;
+        saveKnownAdminOrderIds(nextOrderIds);
+        hasInitializedOrderWatchRef.current = true;
+      } catch {
+        // Polling thong bao khong can lam gian doan thao tac hien tai cua admin.
+      }
+    },
+    [showToast, token]
+  );
+
+  useEffect(() => {
+    const storedKnownOrderIds = readKnownAdminOrderIds();
+    knownOrderIdsRef.current = storedKnownOrderIds || new Set();
+    hasInitializedOrderWatchRef.current = storedKnownOrderIds !== null;
+
+    checkNewOrders();
+
+    const intervalId = globalThis.setInterval(checkNewOrders, NEW_ORDER_POLL_INTERVAL_MS);
+
+    return () => {
+      globalThis.clearInterval(intervalId);
+    };
+  }, [checkNewOrders]);
 
   return (
     <div className="h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(212,175,55,0.12),_transparent_28%),linear-gradient(135deg,_#f8fbff_0%,_#eef4fb_48%,_#ffffff_100%)] text-slate-900">
@@ -101,9 +190,15 @@ function AdminLayout() {
                 </div>
               </div>
 
-              <div className="hidden rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-right sm:block">
-                <p className="text-sm font-semibold text-navy">{user?.fullName || 'Quản trị viên'}</p>
-                <p className="text-xs text-slate-500">{user?.email || 'admin@jewelaura.vn'}</p>
+              <div className="flex items-center gap-3">
+                <button type="button" onClick={handleRefreshPage} disabled={isRefreshing} className="btn-secondary !px-4 !py-3">
+                  {isRefreshing ? 'Đang làm mới...' : 'Làm mới dữ liệu'}
+                </button>
+
+                <div className="hidden rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-right sm:block">
+                  <p className="text-sm font-semibold text-navy">{user?.fullName || 'Quản trị viên'}</p>
+                  <p className="text-xs text-slate-500">{user?.email || 'admin@jewelaura.vn'}</p>
+                </div>
               </div>
             </div>
           </header>

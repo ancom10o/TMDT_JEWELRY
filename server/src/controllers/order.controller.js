@@ -2,9 +2,17 @@ import mongoose from 'mongoose';
 import Cart from '../models/Cart.js';
 import Order from '../models/Order.js';
 import Product from '../models/Product.js';
+import { buildBankQrUrl, generateOrderCode, getBankTransferInfo } from '../utils/bankTransfer.js';
 import { normalizeCouponCode, validateCouponForOrder } from '../utils/coupon.js';
 
 const ALLOWED_PAYMENT_METHODS = ['cod', 'bank_transfer'];
+const FREE_SHIPPING_MIN_TOTAL = 1000000;
+const STANDARD_SHIPPING_FEE = 30000;
+
+function calculateShippingFee(totalBeforeDiscount) {
+  const safeTotal = Math.max(Number(totalBeforeDiscount) || 0, 0);
+  return safeTotal >= FREE_SHIPPING_MIN_TOTAL ? 0 : STANDARD_SHIPPING_FEE;
+}
 
 function normalizeVietnamPhone(value = '') {
   return String(value).replace(/[^\d+]/g, '');
@@ -97,35 +105,72 @@ async function buildOrderDraft({ req, session, couponCode }) {
   const isAuthenticated = Boolean(req.user?._id);
 
   if (isAuthenticated) {
+    const requestItems = normalizeGuestItems(req.body.items);
+    const requestedItemKeys = new Set(requestItems.map((item) => `${item.productId}:${item.selectedSize || ''}`));
     const cart = await Cart.findOne({ user: req.user._id })
       .populate('items.product', 'name slug images price costPrice sku stock sold status')
       .session(session);
 
     if (!cart || cart.items.length === 0) {
-      throw new Error('Khong co san pham de tao don hang.');
+      throw new Error('Không có sản phẩm để tạo đơn hàng.');
     }
 
-    const productIds = cart.items.map((item) => item.product._id);
+    const cartItemsForOrder = requestItems.length > 0
+      ? cart.items.filter((item) => requestedItemKeys.has(`${item.product._id.toString()}:${item.selectedSize || ''}`))
+      : cart.items;
+
+    if (cartItemsForOrder.length === 0 && requestItems.length > 0) {
+      const productIds = requestItems.map((item) => item.productId);
+      const products = await Product.find({ _id: { $in: productIds } }).session(session);
+      const productMap = new Map(products.map((product) => [product._id.toString(), product]));
+
+      for (const item of requestItems) {
+        const product = productMap.get(item.productId);
+
+        if (!product || product.status !== 'active') {
+          throw new Error('Có sản phẩm không còn khả dụng để đặt hàng.');
+        }
+
+        if (product.stock < item.quantity) {
+          throw new Error(`Sản phẩm ${product.name} không đủ tồn kho.`);
+        }
+      }
+
+      return {
+        cart: null,
+        productMap,
+        validatedItems: buildOrderItemsFromRequest(requestItems, productMap),
+        userId: req.user._id,
+        couponCode
+      };
+    }
+
+    if (cartItemsForOrder.length === 0) {
+      throw new Error('Vui lòng chọn sản phẩm cần thanh toán.');
+    }
+
+    const productIds = cartItemsForOrder.map((item) => item.product._id);
     const products = await Product.find({ _id: { $in: productIds } }).session(session);
     const productMap = new Map(products.map((product) => [product._id.toString(), product]));
 
-    for (const item of cart.items) {
+    for (const item of cartItemsForOrder) {
       const productId = item.product._id.toString();
       const product = productMap.get(productId);
 
       if (!product || product.status !== 'active') {
-        throw new Error('Co san pham khong con kha dung de dat hang.');
+        throw new Error('Có sản phẩm không còn khả dụng để đặt hàng.');
       }
 
       if (product.stock < item.quantity) {
-        throw new Error(`San pham ${product.name} khong du ton kho.`);
+        throw new Error(`Sản phẩm ${product.name} không đủ tồn kho.`);
       }
     }
 
     return {
       cart,
+      cartItemsForOrder,
       productMap,
-      validatedItems: buildOrderItemsFromCart(cart.items, productMap),
+      validatedItems: buildOrderItemsFromCart(cartItemsForOrder, productMap),
       userId: req.user._id,
       couponCode
     };
@@ -134,7 +179,7 @@ async function buildOrderDraft({ req, session, couponCode }) {
   const requestItems = normalizeGuestItems(req.body.items);
 
   if (requestItems.length === 0) {
-    throw new Error('Khong co san pham de tao don hang.');
+    throw new Error('Không có sản phẩm để tạo đơn hàng.');
   }
 
   const productIds = requestItems.map((item) => item.productId);
@@ -145,11 +190,11 @@ async function buildOrderDraft({ req, session, couponCode }) {
     const product = productMap.get(item.productId);
 
     if (!product || product.status !== 'active') {
-      throw new Error('Co san pham khong con kha dung de dat hang.');
+      throw new Error('Có sản phẩm không còn khả dụng để đặt hàng.');
     }
 
     if (product.stock < item.quantity) {
-      throw new Error(`San pham ${product.name} khong du ton kho.`);
+      throw new Error(`Sản phẩm ${product.name} không đủ tồn kho.`);
     }
   }
 
@@ -195,15 +240,15 @@ export async function getOrderById(req, res, next) {
       .populate('items.product', 'name slug images');
 
     if (!order) {
-      return res.status(404).json({ message: 'Khong tim thay don hang.' });
+      return res.status(404).json({ message: 'Không tìm thấy đơn hàng.' });
     }
 
     if (!order.user) {
       if (req.user.role !== 'admin') {
-        return res.status(403).json({ message: 'Ban khong co quyen xem don hang nay.' });
+        return res.status(403).json({ message: 'Bạn không có quyền xem đơn hàng này.' });
       }
     } else if (req.user.role !== 'admin' && order.user._id.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Ban khong co quyen xem don hang nay.' });
+      return res.status(403).json({ message: 'Bạn không có quyền xem đơn hàng này.' });
     }
 
     res.json({ order });
@@ -228,7 +273,7 @@ export async function createOrder(req, res, next) {
 
     if (!ALLOWED_PAYMENT_METHODS.includes(paymentMethod)) {
       res.status(400);
-      throw new Error('Phuong thuc thanh toan khong hop le.');
+      throw new Error('Phương thức thanh toán không hợp lệ.');
     }
 
     let createdOrderId = null;
@@ -247,6 +292,8 @@ export async function createOrder(req, res, next) {
       if (couponResult.errorMessage) {
         throw new Error(couponResult.errorMessage);
       }
+      const shippingFee = calculateShippingFee(totalBeforeDiscount);
+      const finalTotal = couponResult.finalTotal + shippingFee;
 
       for (const item of draft.validatedItems) {
         const product = draft.productMap.get(item.product.toString());
@@ -255,17 +302,33 @@ export async function createOrder(req, res, next) {
         await product.save({ session });
       }
 
+      const orderCode = await generateOrderCode({ session });
+      const isBankTransfer = paymentMethod === 'bank_transfer';
+      const bankTransferInfo = isBankTransfer ? getBankTransferInfo() : {};
+      const bankTransferQrUrl = isBankTransfer
+        ? buildBankQrUrl({ amount: finalTotal, orderCode })
+        : '';
+
       const [createdOrder] = await Order.create(
         [
           {
             user: draft.userId,
             items: draft.validatedItems,
             shippingAddress,
+            orderCode,
             paymentMethod,
+            paymentStatus: isBankTransfer ? 'pending' : 'unpaid',
+            bankTransferContent: isBankTransfer ? orderCode : '',
+            bankTransferBankCode: bankTransferInfo.bankCode || '',
+            bankTransferBankName: bankTransferInfo.bankName || '',
+            bankTransferAccountNumber: bankTransferInfo.bankAccount || '',
+            bankTransferAccountName: bankTransferInfo.accountName || '',
+            bankTransferQrUrl,
             couponCode: couponResult.couponCode,
             discountAmount: couponResult.discountAmount,
             totalBeforeDiscount,
-            totalPrice: couponResult.finalTotal
+            shippingFee,
+            totalPrice: finalTotal
           }
         ],
         { session }
@@ -274,7 +337,12 @@ export async function createOrder(req, res, next) {
       createdOrderId = createdOrder._id;
 
       if (draft.cart) {
-        draft.cart.items = [];
+        const orderedItemKeys = new Set(
+          draft.cartItemsForOrder.map((item) => `${item.product._id.toString()}:${item.selectedSize || ''}`)
+        );
+        draft.cart.items = draft.cart.items.filter(
+          (item) => !orderedItemKeys.has(`${item.product._id.toString()}:${item.selectedSize || ''}`)
+        );
         await draft.cart.save({ session });
       }
     });
@@ -298,15 +366,15 @@ export async function cancelMyOrder(req, res, next) {
       .populate('user', 'fullName email');
 
     if (!order) {
-      return res.status(404).json({ message: 'Khong tim thay don hang.' });
+      return res.status(404).json({ message: 'Không tìm thấy đơn hàng.' });
     }
 
     if (!order.user || order.user._id.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Ban khong co quyen huy don hang nay.' });
+      return res.status(403).json({ message: 'Bạn không có quyền hủy đơn hàng này.' });
     }
 
     if (!['pending', 'confirmed'].includes(order.status)) {
-      return res.status(400).json({ message: 'Don hang nay khong the huy o trang thai hien tai.' });
+      return res.status(400).json({ message: 'Đơn hàng này không thể hủy ở trạng thái hiện tại.' });
     }
 
     order.status = 'cancelled';
@@ -320,29 +388,62 @@ export async function cancelMyOrder(req, res, next) {
 
 export async function updateOrderStatus(req, res, next) {
   try {
-    const updateData = {};
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ message: 'Không tìm thấy đơn hàng.' });
+    }
 
     if (typeof req.body.status !== 'undefined') {
-      updateData.status = req.body.status === 'delivered' ? 'completed' : req.body.status;
+      order.status = req.body.status === 'delivered' ? 'completed' : req.body.status;
+      order.completedAt = order.status === 'completed' ? new Date() : null;
     }
 
     if (typeof req.body.isPaid !== 'undefined') {
-      updateData.isPaid = req.body.isPaid;
-      updateData.paidAt = req.body.isPaid ? new Date() : null;
+      order.isPaid = req.body.isPaid;
+      order.paidAt = req.body.isPaid ? new Date() : null;
+      order.paymentStatus = req.body.isPaid ? 'paid' : order.paymentMethod === 'bank_transfer' ? 'pending' : 'unpaid';
     }
 
-    const order = await Order.findByIdAndUpdate(req.params.id, updateData, {
-      new: true,
-      runValidators: true
-    })
+    await order.save();
+
+    const updatedOrder = await Order.findById(order._id)
       .populate('user', 'fullName email')
       .populate('items.product', 'name slug');
 
+    res.json({ order: updatedOrder });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function confirmBankTransferPayment(req, res, next) {
+  try {
+    const order = await Order.findById(req.params.id);
+
     if (!order) {
-      return res.status(404).json({ message: 'Khong tim thay don hang.' });
+      return res.status(404).json({ message: 'Không tìm thấy đơn hàng.' });
     }
 
-    res.json({ order });
+    if (order.paymentMethod !== 'bank_transfer') {
+      return res.status(400).json({ message: 'Đơn hàng này không dùng phương thức chuyển khoản.' });
+    }
+
+    order.paymentStatus = 'paid';
+    order.isPaid = true;
+    order.paidAt = new Date();
+
+    if (order.status === 'pending') {
+      order.status = 'confirmed';
+    }
+
+    await order.save();
+
+    const updatedOrder = await Order.findById(order._id)
+      .populate('user', 'fullName email')
+      .populate('items.product', 'name slug');
+
+    res.json({ order: updatedOrder });
   } catch (error) {
     next(error);
   }

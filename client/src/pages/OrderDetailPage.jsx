@@ -1,5 +1,7 @@
+/* eslint-disable react/prop-types */
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useToast } from '../context/ToastContext.jsx';
 import { useAuth } from '../hooks/useAuth.js';
 import { cancelMyOrder, getOrderDetail, getPublicAssetUrl } from '../services/api.js';
 import { formatCurrency } from '../utils/format.js';
@@ -41,18 +43,71 @@ function getPaymentMethodLabel(method) {
   return labels[method] || method || '--';
 }
 
+function getPaymentStatusLabel(status, isPaid) {
+  const labels = {
+    unpaid: 'Chưa thanh toán',
+    pending: 'Chờ admin xác nhận',
+    paid: 'Đã thanh toán',
+    failed: 'Thanh toán lỗi'
+  };
+
+  return labels[status] || (isPaid ? 'Đã thanh toán' : 'Chưa thanh toán');
+}
+
+function getDisplayOrderCode(order) {
+  return order?.orderCode || order?._id?.slice(-6).toUpperCase() || '--';
+}
+
 function canCancelOrder(status) {
   return ['pending', 'confirmed'].includes(status);
+}
+
+function canPayBankTransfer(order) {
+  return order?.paymentMethod === 'bank_transfer' && order.paymentStatus !== 'paid' && !order.isPaid;
+}
+
+function CancelOrderConfirmDialog({ open, loading, onClose, onConfirm }) {
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/45 px-4">
+      <div className="w-full max-w-md rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_24px_70px_rgba(15,23,42,0.22)]">
+        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-gold">Xác Nhận</p>
+        <h2 className="mt-3 text-2xl font-bold text-navy">Hủy đơn hàng?</h2>
+        <p className="mt-3 text-sm text-slate-600">
+          Bạn có chắc chắn muốn hủy đơn hàng này không? Sau khi hủy, đơn sẽ chuyển sang trạng thái Đã hủy.
+        </p>
+
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+          <button type="button" onClick={onClose} disabled={loading} className="btn-outline">
+            Không hủy
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={loading}
+            className="inline-flex items-center justify-center rounded-full bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading ? 'Đang hủy...' : 'Xác nhận hủy'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function OrderDetailPage() {
   const { id } = useParams();
   const { token } = useAuth();
+  const { showToast } = useToast();
   const [order, setOrder] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [cancelError, setCancelError] = useState('');
   const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
 
   useEffect(() => {
     async function fetchOrder() {
@@ -73,7 +128,7 @@ function OrderDetailPage() {
     fetchOrder();
   }, [id, token]);
 
-  async function handleCancelOrder() {
+  async function confirmCancelOrder() {
     if (!order || !canCancelOrder(order.status)) {
       return;
     }
@@ -84,8 +139,20 @@ function OrderDetailPage() {
     try {
       const response = await cancelMyOrder(order._id, token);
       setOrder(response.order || order);
+      setCancelConfirmOpen(false);
+      showToast({
+        title: 'Đã hủy đơn hàng',
+        description: `Đơn #${getDisplayOrderCode(response.order || order)} đã được chuyển sang trạng thái Đã hủy.`,
+        type: 'success'
+      });
     } catch (requestError) {
-      setCancelError(requestError.response?.data?.message || 'Không thể hủy đơn hàng lúc này.');
+      const message = requestError.response?.data?.message || 'Không thể hủy đơn hàng lúc này.';
+      setCancelError(message);
+      showToast({
+        title: 'Hủy đơn hàng thất bại',
+        description: message,
+        type: 'error'
+      });
     } finally {
       setIsCancelling(false);
     }
@@ -117,12 +184,15 @@ function OrderDetailPage() {
     );
   }
 
+  const displayOrderCode = getDisplayOrderCode(order);
+  const shouldShowQrPaymentButton = canPayBankTransfer(order);
+
   return (
     <section className="container-page py-10 sm:py-12">
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gold">Chi Tiết Đơn Hàng</p>
-          <h1 className="mt-3 text-3xl font-bold text-navy">Đơn #{order._id?.slice(-8).toUpperCase()}</h1>
+          <h1 className="mt-3 text-3xl font-bold text-navy">Đơn #{displayOrderCode}</h1>
           <p className="mt-3 text-slate-600">Ngày đặt: {formatDateTime(order.createdAt)}</p>
         </div>
 
@@ -183,13 +253,19 @@ function OrderDetailPage() {
             <div className="flex items-center justify-between gap-3">
               <span>Thanh toán</span>
               <span className={`font-semibold ${order.isPaid ? 'text-emerald-700' : 'text-amber-700'}`}>
-                {order.isPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                {getPaymentStatusLabel(order.paymentStatus, order.isPaid)}
               </span>
             </div>
             <div className="flex items-center justify-between gap-3">
               <span>Phương thức</span>
               <span className="font-semibold text-navy">{getPaymentMethodLabel(order.paymentMethod)}</span>
             </div>
+            {order.paidAt ? (
+              <div className="flex items-center justify-between gap-3">
+                <span>Ngày thanh toán</span>
+                <span className="font-semibold text-navy">{formatDateTime(order.paidAt)}</span>
+              </div>
+            ) : null}
             <div className="flex items-center justify-between gap-3">
               <span>Tạm tính</span>
               <span className="font-semibold text-navy">{formatCurrency(order.totalBeforeDiscount)}</span>
@@ -201,6 +277,12 @@ function OrderDetailPage() {
             <div className="flex items-center justify-between gap-3">
               <span>Giảm giá</span>
               <span className="font-semibold text-emerald-700">-{formatCurrency(order.discountAmount)}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span>Phí vận chuyển</span>
+              <span className={`font-semibold ${(order.shippingFee || 0) > 0 ? 'text-navy' : 'text-emerald-700'}`}>
+                {(order.shippingFee || 0) > 0 ? formatCurrency(order.shippingFee) : 'Miễn phí'}
+              </span>
             </div>
             <div className="flex items-center justify-between gap-3">
               <span>Tổng tiền</span>
@@ -222,11 +304,18 @@ function OrderDetailPage() {
               {order.shippingAddress?.note ? <p>Ghi chú: {order.shippingAddress.note}</p> : null}
             </div>
           </div>
+          {shouldShowQrPaymentButton ? (
+            <div className="mt-6 border-t border-slate-200 pt-6">
+              <Link to={`/my-orders/${order._id}/payment`} className="btn-secondary w-full">
+                Thanh toán QR
+              </Link>
+            </div>
+          ) : null}
           {canCancelOrder(order.status) ? (
             <div className="mt-6 border-t border-slate-200 pt-6">
               <button
                 type="button"
-                onClick={handleCancelOrder}
+                onClick={() => setCancelConfirmOpen(true)}
                 disabled={isCancelling}
                 className="w-full rounded-full border border-red-200 bg-red-50 px-5 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -236,6 +325,13 @@ function OrderDetailPage() {
           ) : null}
         </aside>
       </div>
+
+      <CancelOrderConfirmDialog
+        open={cancelConfirmOpen}
+        loading={isCancelling}
+        onClose={() => setCancelConfirmOpen(false)}
+        onConfirm={confirmCancelOrder}
+      />
     </section>
   );
 }

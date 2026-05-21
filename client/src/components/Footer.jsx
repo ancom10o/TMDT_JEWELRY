@@ -11,8 +11,8 @@ const socialLinks = ['Facebook', 'Instagram', 'TikTok', 'YouTube'];
 
 function Footer() {
   return (
-    <footer className="mt-16 border-t border-slate-200 bg-navy text-white">
-      <div className="container-page grid gap-10 py-14 md:grid-cols-2 xl:grid-cols-[1.3fr_0.9fr_0.9fr_0.8fr]">
+    <footer className="mt-10 border-t border-slate-200 bg-navy text-white lg:mt-16">
+      <div className="container-page grid gap-7 py-9 md:grid-cols-2 lg:gap-10 lg:py-14 xl:grid-cols-[1.3fr_0.9fr_0.9fr_0.8fr]">
         <section>
           <h2 className="text-2xl font-bold tracking-[0.16em] text-gold">JewelAura</h2>
           <p className="mt-4 max-w-sm text-sm leading-7 text-slate-200">

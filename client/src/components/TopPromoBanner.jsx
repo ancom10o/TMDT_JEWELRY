@@ -88,9 +88,9 @@ function TopPromoBanner() {
   }
 
   return (
-    <section className="px-3 pt-4 sm:px-4 sm:pt-5 lg:px-6 lg:pt-6">
+    <section className="px-2.5 pt-3 sm:px-4 sm:pt-5 lg:px-6 lg:pt-6">
       <div
-        className="overflow-hidden rounded-[28px] border border-[#dfe7f0] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.07)]"
+        className="overflow-hidden rounded-[22px] border border-[#dfe7f0] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.07)] sm:rounded-[26px] lg:rounded-[28px]"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => {
           setIsHovered(false);
@@ -107,7 +107,7 @@ function TopPromoBanner() {
         >
           {promoBanners.map((banner) => (
             <article key={banner.id} className="w-full flex-none">
-              <div className="relative h-[220px] overflow-hidden sm:h-[300px] lg:h-[380px] xl:h-[430px]">
+              <div className="relative h-[190px] overflow-hidden sm:h-[260px] lg:h-[380px] xl:h-[430px]">
                 {banner.imageUrl ? (
                   <img src={banner.imageUrl} alt={banner.title} className="h-full w-full object-cover" />
                 ) : (
@@ -117,14 +117,14 @@ function TopPromoBanner() {
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_25%,_rgba(255,255,255,0.55),_transparent_18%),radial-gradient(circle_at_78%_22%,_rgba(255,255,255,0.25),_transparent_14%),linear-gradient(90deg,rgba(255,250,240,0.2)_0%,rgba(255,255,255,0.02)_45%,rgba(15,23,42,0.08)_100%)]" />
 
                 {!banner.imageUrl ? (
-                  <div className="absolute bottom-5 left-5 max-w-[420px] rounded-[22px] border border-white/60 bg-white/48 p-4 backdrop-blur-[2px] sm:bottom-6 sm:left-6 sm:p-5 lg:bottom-8 lg:left-8 lg:p-6">
+                  <div className="absolute bottom-4 left-4 max-w-[360px] rounded-[18px] border border-white/60 bg-white/48 p-3.5 backdrop-blur-[2px] sm:bottom-6 sm:left-6 sm:max-w-[420px] sm:p-5 lg:bottom-8 lg:left-8 lg:rounded-[22px] lg:p-6">
                     <p className="eyebrow">Banner ảnh lớn</p>
-                    <h2 className="mt-3 font-display text-[1.8rem] leading-[0.96] text-navy sm:text-[2.2rem] lg:text-[2.6rem]">
+                    <h2 className="mt-2 font-display text-[1.35rem] leading-tight text-navy sm:text-[1.9rem] lg:mt-3 lg:text-[2.6rem] lg:leading-[0.96]">
                       {banner.title}
                     </h2>
-                    <p className="mt-3 text-sm leading-7 text-slate-700">{banner.subtitle}</p>
-                    <div className="mt-5">
-                      <Link to={banner.ctaTo} className="btn-secondary px-5 py-2.5">
+                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-700 lg:mt-3 lg:line-clamp-none lg:leading-7">{banner.subtitle}</p>
+                    <div className="mt-3 lg:mt-5">
+                      <Link to={banner.ctaTo} className="btn-secondary px-4 py-2 text-xs lg:px-5 lg:py-2.5 lg:text-sm">
                         {banner.ctaLabel}
                       </Link>
                     </div>

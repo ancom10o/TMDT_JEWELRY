@@ -28,8 +28,35 @@ function getStatusLabel(status) {
   return labels[status] || status || '--';
 }
 
+function getStatusBadgeClass(status) {
+  const classes = {
+    pending: 'bg-amber-100 text-amber-700',
+    confirmed: 'bg-sky-100 text-sky-700',
+    shipping: 'bg-indigo-100 text-indigo-700',
+    completed: 'bg-emerald-100 text-emerald-700',
+    cancelled: 'bg-red-100 text-red-700'
+  };
+
+  return classes[status] || 'bg-slate-100 text-slate-700';
+}
+
 function getPaymentLabel(isPaid) {
   return isPaid ? 'Đã thanh toán' : 'Chưa thanh toán';
+}
+
+function getPaymentStatusLabel(order) {
+  const labels = {
+    unpaid: 'Chưa thanh toán',
+    pending: 'Chờ xác nhận CK',
+    paid: 'Đã thanh toán',
+    failed: 'Thanh toán lỗi'
+  };
+
+  return labels[order.paymentStatus] || getPaymentLabel(order.isPaid);
+}
+
+function getDisplayOrderCode(order) {
+  return order?.orderCode || order?._id?.slice(-6).toUpperCase() || '--';
 }
 
 function MyOrdersPage() {
@@ -113,17 +140,21 @@ function MyOrdersPage() {
               <tbody>
                 {orders.map((order) => (
                   <tr key={order._id} className="border-t border-slate-200 text-sm text-slate-700 transition hover:bg-slate-50">
-                    <td className="px-5 py-4 font-semibold text-navy">#{order._id?.slice(-8).toUpperCase()}</td>
+                    <td className="px-5 py-4 font-semibold text-navy">#{getDisplayOrderCode(order)}</td>
                     <td className="px-5 py-4">{formatDate(order.createdAt)}</td>
                     <td className="px-5 py-4 font-semibold text-navy">{formatCurrency(order.totalPrice)}</td>
-                    <td className="px-5 py-4">{getStatusLabel(order.status)}</td>
+                    <td className="px-5 py-4">
+                      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(order.status)}`}>
+                        {getStatusLabel(order.status)}
+                      </span>
+                    </td>
                     <td className="px-5 py-4">
                       <span
                         className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
                           order.isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
                         }`}
                       >
-                        {getPaymentLabel(order.isPaid)}
+                        {getPaymentStatusLabel(order)}
                       </span>
                     </td>
                     <td className="px-5 py-4">

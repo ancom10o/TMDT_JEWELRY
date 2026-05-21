@@ -11,6 +11,7 @@ import {
 import { useAuth } from '../hooks/useAuth.js';
 
 const CART_STORAGE_KEY = 'jewelaura_cart';
+const CART_SELECTION_STORAGE_KEY = 'jewelaura_cart_selection';
 const AUTH_TOKEN_KEYS = ['jewelaura_token', 'token'];
 
 const CartContext = createContext(null);
@@ -37,6 +38,28 @@ function saveLocalCart(items) {
   globalThis.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
 }
 
+function readSelectedCartKeys() {
+  if (typeof globalThis.localStorage === 'undefined') {
+    return [];
+  }
+
+  try {
+    const storedKeys = globalThis.localStorage.getItem(CART_SELECTION_STORAGE_KEY);
+    const parsedKeys = storedKeys ? JSON.parse(storedKeys) : [];
+    return Array.isArray(parsedKeys) ? parsedKeys.filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSelectedCartKeys(keys) {
+  if (typeof globalThis.localStorage === 'undefined') {
+    return;
+  }
+
+  globalThis.localStorage.setItem(CART_SELECTION_STORAGE_KEY, JSON.stringify(keys));
+}
+
 function getStoredToken() {
   if (typeof globalThis.localStorage === 'undefined') {
     return '';
@@ -58,6 +81,10 @@ function normalizeLocalCartItem(item) {
     quantity: Math.max(Number(item.quantity) || 1, 1),
     selectedSize: item.selectedSize || ''
   };
+}
+
+function getCartItemKey(item) {
+  return item.serverItemId || item.id || `${item.productId}:${item.selectedSize || ''}`;
 }
 
 function normalizeServerCart(cart) {
@@ -117,6 +144,7 @@ export function CartProvider({ children }) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [cartError, setCartError] = useState('');
+  const [selectedCartItemKeys, setSelectedCartItemKeys] = useState(readSelectedCartKeys);
   const [authToken, setAuthToken] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponStatus, setCouponStatus] = useState({ type: '', message: '' });
@@ -131,11 +159,24 @@ export function CartProvider({ children }) {
   }, [authToken, cartItems]);
 
   useEffect(() => {
+    saveSelectedCartKeys(selectedCartItemKeys);
+  }, [selectedCartItemKeys]);
+
+  useEffect(() => {
+    const availableKeys = new Set(cartItems.map(getCartItemKey));
+    setSelectedCartItemKeys((currentKeys) => currentKeys.filter((key) => availableKeys.has(key)));
+  }, [cartItems]);
+
+  useEffect(() => {
     if (!appliedCoupon) {
       return;
     }
 
-    const currentSignature = buildCartSignature(cartItems);
+    const selectedKeySet = new Set(selectedCartItemKeys);
+    const couponItems = selectedKeySet.size > 0
+      ? cartItems.filter((item) => selectedKeySet.has(getCartItemKey(item)))
+      : cartItems;
+    const currentSignature = buildCartSignature(couponItems);
 
     if (!currentSignature || currentSignature !== appliedCouponCartSignatureRef.current) {
       setAppliedCoupon(null);
@@ -145,7 +186,7 @@ export function CartProvider({ children }) {
         message: 'Giỏ hàng đã thay đổi. Vui lòng áp dụng lại mã giảm giá.'
       });
     }
-  }, [appliedCoupon, cartItems]);
+  }, [appliedCoupon, cartItems, selectedCartItemKeys]);
 
   const loadServerCart = useCallback(
     async (tokenValue = authToken) => {
@@ -261,14 +302,15 @@ export function CartProvider({ children }) {
     setCartError('');
 
     if (!authToken) {
-      setCartItems((currentItems) => mergeLocalItems(currentItems, normalizedProduct, safeQuantity));
-      return;
+      const nextItems = mergeLocalItems(cartItems, normalizedProduct, safeQuantity);
+      setCartItems(nextItems);
+      return nextItems;
     }
 
     setIsSyncing(true);
 
     try {
-      await addCartItem(
+      const response = await addCartItem(
         {
           productId: normalizedProduct.productId,
           quantity: safeQuantity,
@@ -276,7 +318,9 @@ export function CartProvider({ children }) {
         },
         authToken
       );
-      await loadServerCart(authToken);
+      const normalizedItems = normalizeServerCart(response.cart);
+      setCartItems(normalizedItems);
+      return normalizedItems;
     } catch (error) {
       setCartError(error.response?.data?.message || 'Không thể thêm sản phẩm vào giỏ hàng.');
       throw error;
@@ -287,6 +331,7 @@ export function CartProvider({ children }) {
 
   async function removeFromCart(itemId) {
     setCartError('');
+    setSelectedCartItemKeys((currentKeys) => currentKeys.filter((key) => key !== itemId));
 
     if (!authToken) {
       setCartItems((currentItems) =>
@@ -313,8 +358,7 @@ export function CartProvider({ children }) {
     setCartError('');
 
     if (!authToken) {
-      setCartItems((currentItems) =>
-        currentItems.map((item) => {
+      const nextItems = cartItems.map((item) => {
           if ((item.id || item.productId) !== itemId) {
             return item;
           }
@@ -325,16 +369,18 @@ export function CartProvider({ children }) {
             ...item,
             quantity: Math.min(safeQuantity, maxQuantity)
           };
-        })
-      );
-      return;
+        });
+      setCartItems(nextItems);
+      return nextItems;
     }
 
     setIsSyncing(true);
 
     try {
-      await updateCartItemQuantity(itemId, safeQuantity, authToken);
-      await loadServerCart(authToken);
+      const response = await updateCartItemQuantity(itemId, safeQuantity, authToken);
+      const normalizedItems = normalizeServerCart(response.cart);
+      setCartItems(normalizedItems);
+      return normalizedItems;
     } catch (error) {
       setCartError(error.response?.data?.message || 'Không thể cập nhật số lượng.');
       throw error;
@@ -347,6 +393,7 @@ export function CartProvider({ children }) {
     setCartError('');
     setAppliedCoupon(null);
     appliedCouponCartSignatureRef.current = '';
+    setSelectedCartItemKeys([]);
 
     if (!authToken) {
       setCartItems([]);
@@ -366,6 +413,93 @@ export function CartProvider({ children }) {
     }
   }
 
+  async function removeSelectedFromCart() {
+    const selectedKeySet = new Set(selectedCartItemKeys);
+    const selectedItems = cartItems.filter((item) => selectedKeySet.has(getCartItemKey(item)));
+
+    if (selectedItems.length === 0) {
+      return;
+    }
+
+    setCartError('');
+    setAppliedCoupon(null);
+    appliedCouponCartSignatureRef.current = '';
+
+    if (!authToken) {
+      setCartItems((currentItems) => currentItems.filter((item) => !selectedKeySet.has(getCartItemKey(item))));
+      setSelectedCartItemKeys([]);
+      return;
+    }
+
+    setIsSyncing(true);
+
+    try {
+      for (const item of selectedItems) {
+        await removeCartItem(getCartItemKey(item), authToken);
+      }
+
+      await loadServerCart(authToken);
+      setSelectedCartItemKeys([]);
+    } catch (error) {
+      setCartError(error.response?.data?.message || 'Không thể xóa sản phẩm đã chọn.');
+      throw error;
+    } finally {
+      setIsSyncing(false);
+    }
+  }
+
+  async function clearSelectedAfterCheckout() {
+    const selectedKeySet = new Set(selectedCartItemKeys);
+    setAppliedCoupon(null);
+    appliedCouponCartSignatureRef.current = '';
+
+    if (!authToken) {
+      setCartItems((currentItems) => currentItems.filter((item) => !selectedKeySet.has(getCartItemKey(item))));
+      setSelectedCartItemKeys([]);
+      return;
+    }
+
+    setIsSyncing(true);
+
+    try {
+      await loadServerCart(authToken);
+      setSelectedCartItemKeys([]);
+    } finally {
+      setIsSyncing(false);
+    }
+  }
+
+  function toggleCartItemSelection(itemId) {
+    setSelectedCartItemKeys((currentKeys) =>
+      currentKeys.includes(itemId)
+        ? currentKeys.filter((key) => key !== itemId)
+        : [...currentKeys, itemId]
+    );
+  }
+
+  function selectAllCartItems() {
+    setSelectedCartItemKeys(cartItems.map(getCartItemKey));
+  }
+
+  function clearCartSelection() {
+    setSelectedCartItemKeys([]);
+  }
+
+  function selectOnlyCartItemByProduct(productId, selectedSize = '', items = cartItems) {
+    const matchedItem = items.find(
+      (item) => item.productId === productId && (item.selectedSize || '') === (selectedSize || '')
+    );
+
+    if (!matchedItem) {
+      setSelectedCartItemKeys([]);
+      return '';
+    }
+
+    const itemKey = getCartItemKey(matchedItem);
+    setSelectedCartItemKeys([itemKey]);
+    return itemKey;
+  }
+
   const summary = useMemo(() => {
     const totalQuantity = cartItems.reduce((sum, item) => sum + item.quantity, 0);
     const totalPrice = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -381,6 +515,20 @@ export function CartProvider({ children }) {
     };
   }, [appliedCoupon, cartItems]);
 
+  const selectedSummary = useMemo(() => {
+    const selectedKeySet = new Set(selectedCartItemKeys);
+    const selectedCartItems = cartItems.filter((item) => selectedKeySet.has(getCartItemKey(item)));
+    const selectedTotalQuantity = selectedCartItems.reduce((sum, item) => sum + item.quantity, 0);
+    const selectedTotalPrice = selectedCartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+    return {
+      selectedCartItems,
+      selectedTotalItems: selectedCartItems.length,
+      selectedTotalQuantity,
+      selectedTotalPrice
+    };
+  }, [cartItems, selectedCartItemKeys]);
+
   async function applyCouponCode(code) {
     const normalizedCode = String(code || '').trim().toUpperCase();
 
@@ -389,7 +537,10 @@ export function CartProvider({ children }) {
       return false;
     }
 
-    if (cartItems.length === 0) {
+    const couponItems = selectedSummary.selectedTotalItems > 0 ? selectedSummary.selectedCartItems : cartItems;
+    const couponTotal = selectedSummary.selectedTotalItems > 0 ? selectedSummary.selectedTotalPrice : summary.totalPrice;
+
+    if (couponItems.length === 0) {
       setCouponStatus({ type: 'error', message: 'Giỏ hàng đang trống, không thể áp dụng mã.' });
       return false;
     }
@@ -400,7 +551,7 @@ export function CartProvider({ children }) {
     try {
       const response = await validateCoupon({
         code: normalizedCode,
-        orderTotal: summary.totalPrice
+        orderTotal: couponTotal
       });
 
       setAppliedCoupon({
@@ -408,7 +559,7 @@ export function CartProvider({ children }) {
         discountAmount: response.discountAmount,
         finalTotal: response.finalTotal
       });
-      appliedCouponCartSignatureRef.current = buildCartSignature(cartItems);
+      appliedCouponCartSignatureRef.current = buildCartSignature(couponItems);
       setCouponStatus({
         type: 'success',
         message: `Đã áp dụng mã ${response.coupon.code} thành công.`
@@ -450,12 +601,20 @@ export function CartProvider({ children }) {
     removeFromCart,
     updateQuantity,
     clearCart,
+    removeSelectedFromCart,
+    clearSelectedAfterCheckout,
+    selectedCartItemKeys,
+    toggleCartItemSelection,
+    selectAllCartItems,
+    clearCartSelection,
+    selectOnlyCartItemByProduct,
     applyCouponCode,
     removeCoupon,
     clearCouponStatus,
     syncCart,
     disconnectCart,
-    ...summary
+    ...summary,
+    ...selectedSummary
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

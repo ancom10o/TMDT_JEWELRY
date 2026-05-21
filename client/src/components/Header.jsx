@@ -147,22 +147,22 @@ function Header() {
       </div>
 
       <div className="container-page">
-        <div className="flex min-h-[60px] items-center gap-3 py-2">
-          <Link to="/" className="flex min-w-0 items-center gap-2.5" onClick={closeMenu}>
-            <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-gold/70 bg-navy text-[13px] font-bold tracking-[0.14em] text-gold">
+        <div className="flex min-h-[56px] items-center gap-2 py-2 lg:min-h-[60px] lg:gap-3">
+          <Link to="/" className="flex min-w-0 items-center gap-2 lg:gap-2.5" onClick={closeMenu}>
+            <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-gold/70 bg-navy text-[12px] font-bold tracking-[0.14em] text-gold lg:h-8 lg:w-8 lg:text-[13px]">
               JA
             </span>
             <span className="min-w-0">
-              <span className="block truncate text-[14px] font-bold tracking-[0.14em] text-navy sm:text-[15px]">JewelAura</span>
+              <span className="block truncate text-[13px] font-bold tracking-[0.1em] text-navy sm:text-[14px] lg:text-[15px] lg:tracking-[0.14em]">JewelAura</span>
               <span className="hidden text-[9px] uppercase tracking-[0.22em] text-gold/90 lg:block">Tỏa sáng theo cách của bạn</span>
             </span>
           </Link>
 
-          <form className="hidden min-w-0 flex-1 justify-center px-2 md:flex lg:px-4" onSubmit={handleSearchSubmit}>
+          <form className="hidden min-w-0 flex-1 justify-center px-1 md:flex lg:px-4" onSubmit={handleSearchSubmit}>
             <label className="sr-only" htmlFor="site-search">
               Tìm kiếm sản phẩm
             </label>
-            <div className="flex h-11 w-full max-w-[420px] overflow-hidden rounded-full border border-[#d9e2ec] bg-white shadow-[0_8px_20px_rgba(15,23,42,0.045)] transition focus-within:border-gold focus-within:ring-4 focus-within:ring-gold/10 xl:max-w-[500px]">
+            <div className="flex h-10 w-full max-w-[300px] overflow-hidden rounded-full border border-[#d9e2ec] bg-white shadow-[0_8px_20px_rgba(15,23,42,0.045)] transition focus-within:border-gold focus-within:ring-4 focus-within:ring-gold/10 lg:h-11 lg:max-w-[420px] xl:max-w-[500px]">
               <span className="flex items-center pl-3 text-slate-400">
                 <SearchIcon />
               </span>
@@ -172,9 +172,9 @@ function Header() {
                 value={searchKeyword}
                 onChange={(event) => setSearchKeyword(event.target.value)}
                 placeholder="Tìm nhẫn, bông tai, dây chuyền..."
-                className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-navy outline-none placeholder:text-slate-400"
+                className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm text-navy outline-none placeholder:text-slate-400 lg:px-3"
               />
-              <button type="submit" className="my-1 mr-1 inline-flex items-center rounded-full bg-navy px-4 text-sm font-semibold text-white transition hover:bg-slate-800" aria-label="Tim kiem">
+              <button type="submit" className="my-1 mr-1 inline-flex items-center rounded-full bg-navy px-3 text-sm font-semibold text-white transition hover:bg-slate-800 lg:px-4" aria-label="Tim kiem">
                 Tìm
               </button>
             </div>
@@ -185,14 +185,16 @@ function Header() {
               <div className="relative hidden md:block" ref={accountMenuRef}>
                 <button
                   type="button"
-                  className="icon-button h-10 max-w-[180px] gap-2 px-3 whitespace-nowrap"
+                  className="icon-button h-10 max-w-[44px] gap-2 px-3 whitespace-nowrap lg:max-w-[180px]"
                   aria-haspopup="menu"
                   aria-expanded={isAccountOpen}
                   onClick={() => setIsAccountOpen((current) => !current)}
                 >
                   <UserIcon />
-                  <span className="min-w-0 max-w-[160px] truncate text-sm font-semibold">{user?.fullName || 'Tai khoan'}</span>
-                  <ChevronIcon open={isAccountOpen} />
+                  <span className="hidden min-w-0 max-w-[160px] truncate text-sm font-semibold lg:inline">{user?.fullName || 'Tai khoan'}</span>
+                  <span className="hidden lg:inline-flex">
+                    <ChevronIcon open={isAccountOpen} />
+                  </span>
                 </button>
 
                 {isAccountOpen ? (
@@ -307,14 +309,14 @@ function Header() {
             </div>
           )}
 
-          <div className="flex flex-col gap-1 md:flex-row md:flex-wrap md:items-center md:gap-1.5">
+          <div className="premium-scrollbar flex flex-col gap-1 md:-mx-1 md:flex-row md:flex-nowrap md:items-center md:gap-1.5 md:overflow-x-auto md:px-1 md:pb-1">
             {categoryItems.map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}
                 onClick={closeMenu}
                 className={() =>
-                  `rounded-full px-3 py-1.5 text-[13px] font-medium transition ${
+                  `shrink-0 rounded-full px-3 py-1.5 text-[13px] font-medium transition ${
                     isCategoryActive(item.path)
                       ? 'bg-navy text-white shadow-[0_10px_24px_rgba(15,23,42,0.16)]'
                       : 'text-slate-700 hover:bg-[#f3f6fa] hover:text-navy'
