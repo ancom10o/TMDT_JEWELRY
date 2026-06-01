@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import CategoryHeroBanner from '../components/CategoryHeroBanner.jsx';
 import ProductFilterSidebar from '../components/ProductFilterSidebar.jsx';
@@ -11,8 +11,11 @@ import { useCart } from '../hooks/useCart.js';
 import { useToast } from '../context/ToastContext.jsx';
 import { getCategories, getProducts } from '../services/api.js';
 
+const PRODUCT_RESULTS_SCROLL_OFFSET_PERCENT = 45;
+
 function ProductsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const productResultsRef = useRef(null);
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0, limit: 12 });
@@ -129,10 +132,6 @@ function ProductsPage() {
     ? 'grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 xl:grid-cols-3 xl:gap-5'
     : 'grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 lg:grid-cols-4 lg:gap-5';
 
-  function updateParams(nextValues) {
-    updateParamsWithOptions(nextValues);
-  }
-
   function updateParamsWithOptions(nextValues, navigateOptions = {}) {
     const nextParams = new globalThis.URLSearchParams(searchParams);
 
@@ -177,10 +176,10 @@ function ProductsPage() {
   }
 
   function handleSortChange(value) {
-    updateParams({
+    updateParamsWithOptions({
       sort: value || 'newest',
       page: 1
-    });
+    }, { replace: true, state: { preserveScroll: true } });
   }
 
   function handleSelectCategory(categorySlug) {
@@ -220,6 +219,31 @@ function ProductsPage() {
       }),
       { replace: true, state: { preserveScroll: true } }
     );
+  }
+
+  function scrollToProductResults() {
+    const browserWindow = typeof globalThis !== 'undefined' ? globalThis.window : null;
+
+    if (!browserWindow || !productResultsRef.current) {
+      return;
+    }
+
+    const offset = browserWindow.innerHeight * (PRODUCT_RESULTS_SCROLL_OFFSET_PERCENT / 100);
+    const targetTop = productResultsRef.current.getBoundingClientRect().top + browserWindow.scrollY - offset;
+
+    browserWindow.scrollTo({
+      top: Math.max(targetTop, 0),
+      behavior: 'smooth'
+    });
+  }
+
+  function handlePageChange(pageNumber) {
+    updateParamsWithOptions(
+      { page: pageNumber },
+      { state: { preserveScroll: true } }
+    );
+
+    globalThis.window?.requestAnimationFrame(scrollToProductResults);
   }
 
   async function handleAddToCart(product) {
@@ -290,7 +314,7 @@ function ProductsPage() {
           </div>
         </aside>
 
-        <div className="min-w-0">
+        <div ref={productResultsRef} className="min-w-0">
           {mobileFiltersOpen ? (
             <div className="fixed inset-0 z-50 xl:hidden">
               <button
@@ -372,7 +396,7 @@ function ProductsPage() {
                   <button
                     type="button"
                     disabled={pagination.page <= 1}
-                    onClick={() => updateParams({ page: Math.max(1, pagination.page - 1) })}
+                    onClick={() => handlePageChange(Math.max(1, pagination.page - 1))}
                     className="btn-outline px-4 py-2.5 disabled:opacity-40"
                   >
                     Trang trước
@@ -384,7 +408,7 @@ function ProductsPage() {
                       <button
                         key={pageNumber}
                         type="button"
-                        onClick={() => updateParams({ page: pageNumber })}
+                        onClick={() => handlePageChange(pageNumber)}
                         className={`h-11 min-w-11 rounded-full px-3 text-sm font-semibold transition ${
                           pageNumber === pagination.page
                             ? 'bg-navy text-white shadow-[0_10px_24px_rgba(15,23,42,0.16)]'
@@ -398,7 +422,7 @@ function ProductsPage() {
                   <button
                     type="button"
                     disabled={pagination.page >= pagination.totalPages}
-                    onClick={() => updateParams({ page: Math.min(pagination.totalPages, pagination.page + 1) })}
+                    onClick={() => handlePageChange(Math.min(pagination.totalPages, pagination.page + 1))}
                     className="btn-outline px-4 py-2.5 disabled:opacity-40"
                   >
                     Trang sau

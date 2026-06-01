@@ -70,9 +70,9 @@ function LoginPage() {
         <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
           <div className="surface-soft p-7 sm:p-9">
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-gold">Tài Khoản</p>
-            <h1 className="mt-3 text-3xl font-bold text-navy sm:text-4xl">Đăng nhập để tiếp tục mua sắm</h1>
+            <h1 className="mt-3 text-3xl font-bold text-navy sm:text-4xl">Đăng nhập</h1>
             <p className="mt-4 text-sm leading-7 text-slate-600">
-              Đăng nhập để theo dõi đơn hàng, quản lý giỏ hàng và thanh toán nhanh hơn trên JewelAura.
+              Đăng nhập để theo dõi đơn hàng, quản lý giỏ hàng và thanh toán nhanh hơn.
             </p>
 
             <div className="mt-8 grid gap-4 sm:grid-cols-2">

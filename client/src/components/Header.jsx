@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
 import { useCart } from '../hooks/useCart.js';
+import { useSiteSettings } from '../context/SiteSettingsContext.jsx';
 import { getCategories } from '../services/api.js';
 
 const fallbackCategoryItems = [
@@ -76,6 +77,7 @@ function Header() {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [headerCategories, setHeaderCategories] = useState([]);
   const { totalQuantity } = useCart();
+  const { settings } = useSiteSettings();
   const { user, isAuthenticated, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -178,20 +180,24 @@ function Header() {
     <header className="sticky top-0 z-50 border-b border-[#ece4d7] bg-white/88 shadow-[0_12px_32px_rgba(15,23,42,0.055)] backdrop-blur-xl">
       <div className="border-b border-slate-100 bg-navy text-[11px] text-white/85">
         <div className="container-page flex min-h-8 items-center justify-center gap-2 py-0.5 text-center sm:justify-between sm:text-left">
-          <p className="font-medium">Hotline: 1900 6868</p>
-          <p className="hidden md:block">Miễn phí giao hàng cho đơn từ 1.000.000d</p>
-          <p className="hidden lg:block">Đổi size trong 7 ngày với sản phẩm đủ điều kiện</p>
+          <p className="font-medium">{settings.topbarMessages?.[0] || `Hotline: ${settings.hotline}`}</p>
+          <p className="hidden md:block">{settings.topbarMessages?.[1] || ''}</p>
+          <p className="hidden lg:block">{settings.topbarMessages?.[2] || ''}</p>
         </div>
       </div>
 
       <div className="container-page">
         <div className="flex min-h-[56px] items-center gap-2 py-2 lg:min-h-[60px] lg:gap-3">
           <Link to="/" className="flex min-w-0 items-center gap-2 lg:gap-2.5" onClick={closeMenu}>
-            <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-gold/70 bg-navy text-[12px] font-bold tracking-[0.14em] text-gold lg:h-8 lg:w-8 lg:text-[13px]">
-              JA
-            </span>
+            {settings.logoUrl ? (
+              <img src={settings.logoUrl} alt={settings.storeName} className="h-8 w-8 flex-shrink-0 rounded-full object-cover" />
+            ) : (
+              <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-gold/70 bg-navy text-[12px] font-bold tracking-[0.14em] text-gold lg:h-8 lg:w-8 lg:text-[13px]">
+                JA
+              </span>
+            )}
             <span className="min-w-0">
-              <span className="block truncate text-[13px] font-bold tracking-[0.1em] text-navy sm:text-[14px] lg:text-[15px] lg:tracking-[0.14em]">JewelAura</span>
+              <span className="block truncate text-[13px] font-bold tracking-[0.1em] text-navy sm:text-[14px] lg:text-[15px] lg:tracking-[0.14em]">{settings.storeName}</span>
               <span className="hidden text-[9px] uppercase tracking-[0.22em] text-gold/90 lg:block">Tỏa sáng theo cách của bạn</span>
             </span>
           </Link>

@@ -1,27 +1,63 @@
-import Coupon from '../models/Coupon.js';
 import Order from '../models/Order.js';
 import Product from '../models/Product.js';
-import User from '../models/User.js';
 import { createWorkbookBuffer } from '../utils/excel.js';
 
+const COMPLETED_ORDER_STATUS = 'completed';
+const REPORT_TIME_ZONE = 'Asia/Ho_Chi_Minh';
+const REPORT_TIME_ZONE_OFFSET_MS = 7 * 60 * 60 * 1000;
+const LOW_STOCK_THRESHOLD = 10;
+const PROCESSING_ORDER_STATUSES = ['pending', 'processing', 'confirmed'];
+
 function startOfMonth(year, month) {
-  return new Date(year, month - 1, 1, 0, 0, 0, 0);
+  return startOfVietnamDayUtc(year, month, 1);
 }
 
 function startOfNextMonth(year, month) {
   return month === 12 ? startOfMonth(year + 1, 1) : startOfMonth(year, month + 1);
 }
 
-function startOfDay(value) {
-  const date = new Date(value);
-  date.setHours(0, 0, 0, 0);
-  return date;
+function getVietnamDateParts(value = new Date()) {
+  const vietnamDate = new Date(value.getTime() + REPORT_TIME_ZONE_OFFSET_MS);
+
+  return {
+    year: vietnamDate.getUTCFullYear(),
+    month: vietnamDate.getUTCMonth() + 1,
+    day: vietnamDate.getUTCDate()
+  };
 }
 
-function endOfDay(value) {
-  const date = new Date(value);
-  date.setHours(23, 59, 59, 999);
-  return date;
+function startOfVietnamDayUtc(year, month, day) {
+  return new Date(Date.UTC(year, month - 1, day) - REPORT_TIME_ZONE_OFFSET_MS);
+}
+
+function parseDateInput(value) {
+  const [year, month, day] = String(value || '').split('-').map(Number);
+
+  if (!year || !month || !day) {
+    return null;
+  }
+
+  return { year, month, day };
+}
+
+function startOfDay(value) {
+  const parsedDate = parseDateInput(value);
+
+  if (!parsedDate) {
+    return new Date(Number.NaN);
+  }
+
+  return startOfVietnamDayUtc(parsedDate.year, parsedDate.month, parsedDate.day);
+}
+
+function startOfNextDay(value) {
+  const parsedDate = parseDateInput(value);
+
+  if (!parsedDate) {
+    return new Date(Number.NaN);
+  }
+
+  return startOfVietnamDayUtc(parsedDate.year, parsedDate.month, parsedDate.day + 1);
 }
 
 function getDaysInMonth(year, month) {
@@ -34,51 +70,59 @@ function sendWorkbook(res, filename, buffer) {
   res.send(buffer);
 }
 
+function buildValidRevenueMatch(dateRange = {}) {
+  return {
+    status: COMPLETED_ORDER_STATUS,
+    ...dateRange,
+    $or: [
+      { paymentMethod: 'bank_transfer', paymentStatus: 'paid' },
+      { paymentMethod: 'cod' }
+    ]
+  };
+}
+
 export async function getDashboardStats(req, res, next) {
   try {
     const now = new Date();
-    const chartYear = Number(req.query.year) || now.getFullYear();
-    const yearStart = new Date(chartYear, 0, 1);
-    const nextYearStart = new Date(chartYear + 1, 0, 1);
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const currentVietnamDate = getVietnamDateParts(now);
+    const chartYear = Number(req.query.year) || currentVietnamDate.year;
+    const yearStart = startOfMonth(chartYear, 1);
+    const nextYearStart = startOfMonth(chartYear + 1, 1);
+    const monthStart = startOfMonth(currentVietnamDate.year, currentVietnamDate.month);
+    const nextMonthStart = startOfNextMonth(currentVietnamDate.year, currentVietnamDate.month);
 
     const [
       totalProducts,
-      totalOrders,
-      totalUsers,
-      activeCoupons,
       revenueResult,
       revenueByMonthResult,
       revenueByDayResult,
       monthlyOrders,
+      pendingOrders,
+      monthlyCompletedOrders,
+      lowStockProductsCount,
       recentOrders,
+      pendingBankTransferOrders,
       lowStockProducts
     ] =
       await Promise.all([
         Product.countDocuments(),
-        Order.countDocuments(),
-        User.countDocuments(),
-        Coupon.countDocuments({ isActive: true, endDate: { $gte: new Date() } }),
         Order.aggregate([
           {
-            $match: {
-              status: { $in: ['completed', 'delivered'] },
-              createdAt: { $gte: monthStart, $lt: nextMonthStart }
-            }
+            $match: buildValidRevenueMatch({
+              completedAt: { $gte: monthStart, $lt: nextMonthStart }
+            })
           },
           { $group: { _id: null, totalRevenue: { $sum: '$totalPrice' } } }
         ]),
         Order.aggregate([
           {
-            $match: {
-              status: { $in: ['completed', 'delivered'] },
-              createdAt: { $gte: yearStart, $lt: nextYearStart }
-            }
+            $match: buildValidRevenueMatch({
+              completedAt: { $gte: yearStart, $lt: nextYearStart }
+            })
           },
           {
             $group: {
-              _id: { $month: '$createdAt' },
+              _id: { $month: { date: '$completedAt', timezone: REPORT_TIME_ZONE } },
               revenue: { $sum: '$totalPrice' },
               orders: { $sum: 1 }
             }
@@ -87,16 +131,15 @@ export async function getDashboardStats(req, res, next) {
         ]),
         Order.aggregate([
           {
-            $match: {
-              status: { $in: ['completed', 'delivered'] },
-              createdAt: { $gte: yearStart, $lt: nextYearStart }
-            }
+            $match: buildValidRevenueMatch({
+              completedAt: { $gte: yearStart, $lt: nextYearStart }
+            })
           },
           {
             $group: {
               _id: {
-                month: { $month: '$createdAt' },
-                day: { $dayOfMonth: '$createdAt' }
+                month: { $month: { date: '$completedAt', timezone: REPORT_TIME_ZONE } },
+                day: { $dayOfMonth: { date: '$completedAt', timezone: REPORT_TIME_ZONE } }
               },
               revenue: { $sum: '$totalPrice' },
               orders: { $sum: 1 }
@@ -107,14 +150,30 @@ export async function getDashboardStats(req, res, next) {
         Order.countDocuments({
           createdAt: { $gte: monthStart, $lt: nextMonthStart }
         }),
+        Order.countDocuments({
+          status: { $in: PROCESSING_ORDER_STATUSES }
+        }),
+        Order.countDocuments({
+          status: COMPLETED_ORDER_STATUS,
+          completedAt: { $gte: monthStart, $lt: nextMonthStart }
+        }),
+        Product.countDocuments({ stock: { $lte: LOW_STOCK_THRESHOLD }, status: 'active' }),
         Order.find()
           .populate('user', 'fullName email')
           .sort({ createdAt: -1 })
           .limit(5),
-        Product.find({ stock: { $lte: 10 }, status: 'active' })
+        Order.find({
+          paymentMethod: 'bank_transfer',
+          paymentStatus: 'pending',
+          status: { $ne: 'cancelled' }
+        })
+          .populate('user', 'fullName email')
+          .sort({ createdAt: -1 })
+          .limit(5),
+        Product.find({ stock: { $lte: LOW_STOCK_THRESHOLD }, status: 'active' })
           .populate('category', 'name slug')
           .sort({ stock: 1, createdAt: -1 })
-          .limit(8)
+          .limit(5)
       ]);
 
     const revenueByMonth = Array.from({ length: 12 }, (_, index) => {
@@ -147,17 +206,19 @@ export async function getDashboardStats(req, res, next) {
     res.json({
       stats: {
         totalProducts,
-        totalOrders,
-        totalUsers,
         monthlyRevenue: revenueResult[0]?.totalRevenue || 0,
         revenue: revenueResult[0]?.totalRevenue || 0,
         monthlyOrders,
-        activeCoupons
+        pendingOrders,
+        monthlyCompletedOrders,
+        lowStockProductsCount,
+        lowStockThreshold: LOW_STOCK_THRESHOLD
       },
       revenueByMonth,
       revenueByDay,
       chartYear,
       recentOrders,
+      pendingBankTransferOrders,
       lowStockProducts
     });
   } catch (error) {
@@ -217,23 +278,24 @@ export async function exportMonthlyRevenueExcel(req, res, next) {
     }
 
     const fromDate = hasDateRange ? startOfDay(fromDateQuery) : startOfMonth(year, month);
-    const toDate = hasDateRange ? endOfDay(toDateQuery || fromDateQuery) : startOfNextMonth(year, month);
+    const toDate = hasDateRange ? startOfNextDay(toDateQuery || fromDateQuery) : startOfNextMonth(year, month);
 
-    if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime()) || fromDate > toDate) {
+    if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime()) || fromDate >= toDate) {
       return res.status(400).json({ message: 'Khoang ngay export khong hop le.' });
     }
 
     const orders = await Order.find({
-      status: { $in: ['completed', 'delivered'] },
-      createdAt: { $gte: fromDate, $lt: toDate }
+      status: COMPLETED_ORDER_STATUS,
+      completedAt: { $gte: fromDate, $lt: toDate }
     })
       .populate('user', 'fullName email phone')
-      .sort({ createdAt: -1 })
+      .sort({ completedAt: -1, createdAt: -1 })
       .lean();
 
     const columns = [
       { key: 'orderCode', header: 'Ma don hang' },
       { key: 'orderDate', header: 'Ngay dat' },
+      { key: 'completedDate', header: 'Ngay hoan thanh' },
       { key: 'status', header: 'Trang thai' },
       { key: 'paymentMethod', header: 'Phuong thuc thanh toan' },
       { key: 'customerName', header: 'Ten khach hang' },
@@ -251,7 +313,8 @@ export async function exportMonthlyRevenueExcel(req, res, next) {
     const rows = orders.flatMap((order) =>
       order.items.map((item) => ({
         orderCode: `#${order.orderCode || order._id.toString().slice(-6).toUpperCase()}`,
-        orderDate: new Intl.DateTimeFormat('vi-VN').format(new Date(order.createdAt)),
+        orderDate: new Intl.DateTimeFormat('vi-VN', { timeZone: REPORT_TIME_ZONE }).format(new Date(order.createdAt)),
+        completedDate: new Intl.DateTimeFormat('vi-VN', { timeZone: REPORT_TIME_ZONE }).format(new Date(order.completedAt)),
         status: order.status,
         paymentMethod: order.paymentMethod,
         customerName: order.user?.fullName || order.shippingAddress?.fullName || '',

@@ -157,10 +157,10 @@ function RegisterPage() {
 
           <div className="surface-soft p-7 sm:p-9">
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-gold">Thành viên</p>
-            <h2 className="mt-3 text-3xl font-bold text-navy sm:text-4xl">Tài khoản giúp trải nghiệm mượt hơn</h2>
+            <h2 className="mt-3 text-3xl font-bold text-navy sm:text-4xl">Đăng ký</h2>
             <div className="mt-6 space-y-4">
               {[
-                'Lưu lịch sử mua hàng và theo dõi trạng thái đơn.',
+                'Lưu lịch sử mua hàng và theo dõi trạng thái đơn ở trên mọi thiết bị.',
                 'Đặt hàng nhanh hơn trên mobile, tablet và desktop.',
                 'Sẵn sàng cho các tính năng ưu đãi và quản lý tài khoản về sau.'
               ].map((item) => (

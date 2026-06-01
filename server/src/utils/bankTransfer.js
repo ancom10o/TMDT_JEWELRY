@@ -40,11 +40,25 @@ export async function generateOrderCode({ session } = {}) {
 }
 
 export function buildBankQrUrl({ amount, orderCode }) {
+  return buildBankQrUrlFromInfo({
+    amount,
+    orderCode,
+    bankCode: BANK_CODE,
+    bankAccount: BANK_ACCOUNT,
+    accountName: ACCOUNT_NAME
+  });
+}
+
+export function buildBankQrUrlFromInfo({ amount, orderCode, bankCode, bankAccount, accountName }) {
+  if (!bankCode || !bankAccount || !accountName) {
+    return '';
+  }
+
   const safeAmount = Math.max(Math.round(Number(amount) || 0), 0);
   const encodedOrderCode = encodeURIComponent(orderCode);
-  const encodedAccountName = encodeURIComponent(ACCOUNT_NAME);
+  const encodedAccountName = encodeURIComponent(accountName);
 
-  return `https://img.vietqr.io/image/${BANK_CODE}-${BANK_ACCOUNT}-compact2.png?amount=${safeAmount}&addInfo=${encodedOrderCode}&accountName=${encodedAccountName}`;
+  return `https://img.vietqr.io/image/${bankCode}-${bankAccount}-compact2.png?amount=${safeAmount}&addInfo=${encodedOrderCode}&accountName=${encodedAccountName}`;
 }
 
 export function getBankTransferInfo() {

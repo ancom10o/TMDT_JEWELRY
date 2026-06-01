@@ -18,6 +18,10 @@ import {
   reorderHomeSections,
   updateHomeSection
 } from '../controllers/homeSection.controller.js';
+import {
+  getAdminSiteSettings,
+  updateAdminSiteSettings
+} from '../controllers/siteSetting.controller.js';
 import { admin, protect } from '../middlewares/auth.middleware.js';
 
 const router = Router();
@@ -28,6 +32,8 @@ router.get('/products', getAdminProducts);
 router.get('/exports/products', exportProductsExcel);
 router.get('/exports/revenue', exportMonthlyRevenueExcel);
 router.get('/homepage', getAdminHomeSections);
+router.get('/site-settings', getAdminSiteSettings);
+router.put('/site-settings', updateAdminSiteSettings);
 router.post('/homepage/sections', createHomeSection);
 router.put('/homepage/sections/:id', updateHomeSection);
 router.delete('/homepage/sections/:id', deleteHomeSection);

@@ -8,6 +8,7 @@ import { useAuth } from '../hooks/useAuth.js';
 import { useCart } from '../hooks/useCart.js';
 import { useWishlist } from '../hooks/useWishlist.js';
 import { useToast } from '../context/ToastContext.jsx';
+import { useSiteSettings } from '../context/SiteSettingsContext.jsx';
 import { formatCurrency, formatNumber } from '../utils/format.js';
 import { getGenderLabel, getMaterialGroupLabel, getProductMaterialLabel } from '../utils/productFilters.js';
 import { getProductDetail, getProducts, getPublicAssetUrl } from '../services/api.js';
@@ -138,7 +139,15 @@ function QuantitySelector({ value, max, onChange }) {
   );
 }
 
-function ProductDetailTabs({ product, availableSizes, detailItems }) {
+function renderParagraphs(value) {
+  return String(value || '')
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => <p key={item}>{item}</p>);
+}
+
+function ProductDetailTabs({ product, availableSizes, detailItems, settings }) {
   const [activeTab, setActiveTab] = useState('description');
 
   useEffect(() => {
@@ -167,14 +176,12 @@ function ProductDetailTabs({ product, availableSizes, detailItems }) {
     ),
     warranty: (
       <div className="space-y-4 text-sm leading-8 text-slate-600 sm:text-[15px]">
-        <p>Bảo hành chính hãng theo chính sách áp dụng của JewelAura đối với từng dòng sản phẩm.</p>
-        <p>Hỗ trợ kiểm tra, vệ sinh và tư vấn đổi size trong thời gian phù hợp với điều kiện sản phẩm.</p>
+        {renderParagraphs(settings.warrantyPolicy)}
       </div>
     ),
     care: (
       <div className="space-y-4 text-sm leading-8 text-slate-600 sm:text-[15px]">
-        <p>Tránh để trang sức tiếp xúc trực tiếp với hóa chất mạnh, nước hoa và môi trường ẩm kéo dài.</p>
-        <p>Bảo quản trong hộp riêng, lau nhẹ bằng khăn mềm sau khi sử dụng để giữ độ sáng và bề mặt hoàn thiện.</p>
+        {renderParagraphs(settings.careGuide)}
         {availableSizes.length > 0 ? <p>Khi cần điều chỉnh size, hãy liên hệ tư vấn để được hướng dẫn phù hợp.</p> : null}
       </div>
     )
@@ -211,6 +218,7 @@ function ProductDetailPage() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { addToCart, cartItems, isSyncing, selectOnlyCartItemByProduct, updateQuantity } = useCart();
+  const { settings } = useSiteSettings();
   const { showToast } = useToast();
   const { isFavorite, toggleWishlist } = useWishlist();
   const [product, setProduct] = useState(null);
@@ -444,7 +452,7 @@ function ProductDetailPage() {
         : 'border-emerald-200 bg-emerald-50 text-emerald-700';
 
   const trustItems = [
-    'Miễn phí giao hàng từ 1.000.000₫',
+    `Miễn phí giao hàng từ ${formatCurrency(settings.freeShippingThreshold || 1000000)}`,
     'Đổi size trong 7 ngày',
     'Bảo hành chính hãng',
     'Tư vấn chọn size miễn phí'
@@ -610,7 +618,7 @@ function ProductDetailPage() {
       </div>
 
       <div className="mt-6 sm:mt-8 lg:mt-10">
-        <ProductDetailTabs product={product} availableSizes={availableSizes} detailItems={detailItems} />
+        <ProductDetailTabs product={product} availableSizes={availableSizes} detailItems={detailItems} settings={settings} />
       </div>
 
       <div className="section-shell">

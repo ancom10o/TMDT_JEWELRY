@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth.js';
+import { useSiteSettings } from '../context/SiteSettingsContext.jsx';
 import { getOrderDetail } from '../services/api.js';
 import { formatCurrency } from '../utils/format.js';
 
@@ -20,6 +21,7 @@ async function copyText(value) {
 function OrderPaymentQrPage() {
   const { id } = useParams();
   const { token } = useAuth();
+  const { settings } = useSiteSettings();
   const [order, setOrder] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -62,8 +64,9 @@ function OrderPaymentQrPage() {
   }
 
   const displayOrderCode = getDisplayOrderCode(order);
-  const bankAccount = order.bankTransferAccountNumber || 'YOUR_TECHCOMBANK_ACCOUNT';
-  const accountName = order.bankTransferAccountName || 'YOUR_ACCOUNT_NAME';
+  const bankName = order.bankTransferBankName || settings.bankName || '';
+  const bankAccount = order.bankTransferAccountNumber || settings.bankAccountNumber || '';
+  const accountName = order.bankTransferAccountName || settings.bankAccountName || '';
   const transferContent = order.bankTransferContent || displayOrderCode;
 
   if (!canShowQrPayment(order)) {
@@ -109,12 +112,16 @@ function OrderPaymentQrPage() {
                 alt={`QR thanh toán ${displayOrderCode}`}
                 className="mx-auto h-[320px] w-[320px] rounded-2xl border border-slate-200 bg-white object-contain p-3 sm:h-[380px] sm:w-[380px]"
               />
-            ) : null}
+            ) : (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
+                Cấu hình thanh toán chuyển khoản chưa đầy đủ nên chưa thể tạo mã QR. Vui lòng chờ shop liên hệ xác nhận thông tin thanh toán.
+              </div>
+            )}
 
             <div className="space-y-4 text-sm text-slate-600">
-              <p><span className="font-semibold text-navy">Ngân hàng:</span> {order.bankTransferBankName || 'Techcombank'}</p>
-              <p><span className="font-semibold text-navy">Số tài khoản:</span> {bankAccount}</p>
-              <p><span className="font-semibold text-navy">Chủ tài khoản:</span> {accountName}</p>
+              <p><span className="font-semibold text-navy">Ngân hàng:</span> {bankName || 'Chưa cấu hình'}</p>
+              <p><span className="font-semibold text-navy">Số tài khoản:</span> {bankAccount || 'Chưa cấu hình'}</p>
+              <p><span className="font-semibold text-navy">Chủ tài khoản:</span> {accountName || 'Chưa cấu hình'}</p>
               <p><span className="font-semibold text-navy">Số tiền:</span> {formatCurrency(order.totalPrice)}</p>
               <p><span className="font-semibold text-navy">Nội dung chuyển khoản:</span> {transferContent}</p>
 
@@ -122,7 +129,7 @@ function OrderPaymentQrPage() {
                 <button type="button" onClick={() => copyText(transferContent)} className="btn-outline !px-4 !py-2">
                   Copy nội dung
                 </button>
-                <button type="button" onClick={() => copyText(bankAccount)} className="btn-outline !px-4 !py-2">
+                <button type="button" onClick={() => copyText(bankAccount)} disabled={!bankAccount} className="btn-outline !px-4 !py-2 disabled:cursor-not-allowed disabled:opacity-50">
                   Copy số tài khoản
                 </button>
               </div>

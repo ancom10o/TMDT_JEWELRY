@@ -2,16 +2,18 @@ import mongoose from 'mongoose';
 import Cart from '../models/Cart.js';
 import Order from '../models/Order.js';
 import Product from '../models/Product.js';
-import { buildBankQrUrl, generateOrderCode, getBankTransferInfo } from '../utils/bankTransfer.js';
+import { buildBankQrUrlFromInfo, generateOrderCode } from '../utils/bankTransfer.js';
+import { getSiteSettingsDocument } from './siteSetting.controller.js';
 import { normalizeCouponCode, validateCouponForOrder } from '../utils/coupon.js';
 
 const ALLOWED_PAYMENT_METHODS = ['cod', 'bank_transfer'];
 const FREE_SHIPPING_MIN_TOTAL = 1000000;
 const STANDARD_SHIPPING_FEE = 30000;
 
-function calculateShippingFee(totalBeforeDiscount) {
+function calculateShippingFee(totalBeforeDiscount, freeShippingThreshold = FREE_SHIPPING_MIN_TOTAL) {
   const safeTotal = Math.max(Number(totalBeforeDiscount) || 0, 0);
-  return safeTotal >= FREE_SHIPPING_MIN_TOTAL ? 0 : STANDARD_SHIPPING_FEE;
+  const safeThreshold = Math.max(Number(freeShippingThreshold) || FREE_SHIPPING_MIN_TOTAL, 0);
+  return safeThreshold > 0 && safeTotal >= safeThreshold ? 0 : STANDARD_SHIPPING_FEE;
 }
 
 function normalizeVietnamPhone(value = '') {
@@ -292,7 +294,8 @@ export async function createOrder(req, res, next) {
       if (couponResult.errorMessage) {
         throw new Error(couponResult.errorMessage);
       }
-      const shippingFee = calculateShippingFee(totalBeforeDiscount);
+      const siteSettings = await getSiteSettingsDocument();
+      const shippingFee = calculateShippingFee(totalBeforeDiscount, siteSettings.freeShippingThreshold);
       const finalTotal = couponResult.finalTotal + shippingFee;
 
       for (const item of draft.validatedItems) {
@@ -304,9 +307,16 @@ export async function createOrder(req, res, next) {
 
       const orderCode = await generateOrderCode({ session });
       const isBankTransfer = paymentMethod === 'bank_transfer';
-      const bankTransferInfo = isBankTransfer ? getBankTransferInfo() : {};
+      const bankTransferInfo = isBankTransfer
+        ? {
+            bankCode: siteSettings.bankCode || '',
+            bankName: siteSettings.bankName || '',
+            bankAccount: siteSettings.bankAccountNumber || '',
+            accountName: siteSettings.bankAccountName || ''
+          }
+        : {};
       const bankTransferQrUrl = isBankTransfer
-        ? buildBankQrUrl({ amount: finalTotal, orderCode })
+        ? buildBankQrUrlFromInfo({ amount: finalTotal, orderCode, ...bankTransferInfo })
         : '';
 
       const [createdOrder] = await Order.create(
@@ -395,8 +405,16 @@ export async function updateOrderStatus(req, res, next) {
     }
 
     if (typeof req.body.status !== 'undefined') {
-      order.status = req.body.status === 'delivered' ? 'completed' : req.body.status;
-      order.completedAt = order.status === 'completed' ? new Date() : null;
+      const nextStatus = req.body.status === 'delivered' ? 'completed' : req.body.status;
+      order.status = nextStatus;
+
+      if (nextStatus === 'completed' && !order.completedAt) {
+        order.completedAt = new Date();
+      }
+
+      if (nextStatus !== 'completed') {
+        order.completedAt = null;
+      }
     }
 
     if (typeof req.body.isPaid !== 'undefined') {

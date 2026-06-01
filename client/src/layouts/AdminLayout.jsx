@@ -1,6 +1,6 @@
 /* eslint-disable react/prop-types */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useToast } from '../context/ToastContext.jsx';
 import { useAuth } from '../hooks/useAuth.js';
 import { getOrders } from '../services/api.js';
@@ -9,12 +9,13 @@ const NEW_ORDER_POLL_INTERVAL_MS = 5000;
 const KNOWN_ADMIN_ORDER_IDS_KEY = 'jewelaura_admin_known_order_ids';
 const adminMenuItems = [
   { label: 'Tổng quan', path: '/admin', icon: '◇' },
-  { label: 'Homepage CMS', path: '/admin/homepage', icon: '▣' },
+  { label: 'Homepage', path: '/admin/homepage', icon: '▣' },
   { label: 'Sản phẩm', path: '/admin/products', icon: '◈' },
   { label: 'Danh mục', path: '/admin/categories', icon: '▤' },
   { label: 'Đơn hàng', path: '/admin/orders', icon: '□' },
   { label: 'Người dùng', path: '/admin/users', icon: '○' },
   { label: 'Mã giảm giá', path: '/admin/coupons', icon: '%' },
+  { label: 'Cài đặt website', path: '/admin/settings', icon: '⚙' },
 ];
 
 function getDisplayOrderCode(order) {
@@ -191,6 +192,9 @@ function AdminLayout() {
               </div>
 
               <div className="flex items-center gap-3">
+                <Link to="/" className="btn-outline hidden !px-4 !py-3 sm:inline-flex">
+                  Về trang chủ
+                </Link>
                 <button type="button" onClick={handleRefreshPage} disabled={isRefreshing} className="btn-secondary !px-4 !py-3">
                   {isRefreshing ? 'Đang làm mới...' : 'Làm mới dữ liệu'}
                 </button>
@@ -203,7 +207,7 @@ function AdminLayout() {
             </div>
           </header>
 
-          <div className="premium-scrollbar h-full min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+          <div id="admin-scroll-container" className="premium-scrollbar h-full min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
             <div className="mx-auto w-full max-w-[1440px]">
               <Outlet />
             </div>

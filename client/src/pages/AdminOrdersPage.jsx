@@ -6,6 +6,7 @@ import DataTable from '../components/admin/DataTable.jsx';
 import FilterBar from '../components/admin/FilterBar.jsx';
 import StatusBadge from '../components/admin/StatusBadge.jsx';
 import { useToast } from '../context/ToastContext.jsx';
+import { useSiteSettings } from '../context/SiteSettingsContext.jsx';
 import { useAuth } from '../hooks/useAuth.js';
 import { confirmOrderPayment, getOrderDetail, getOrders, getPublicAssetUrl, updateOrderStatus } from '../services/api.js';
 import { formatCurrency } from '../utils/format.js';
@@ -13,10 +14,12 @@ import { formatCurrency } from '../utils/format.js';
 const statusOptions = ['pending', 'confirmed', 'shipping', 'completed', 'cancelled'];
 const AUTO_REFRESH_INTERVAL_MS = 5000;
 const ORDERS_PER_PAGE = 20;
+const REPORT_TIME_ZONE = 'Asia/Ho_Chi_Minh';
 
 function formatDateTime(value) {
   if (!value) return '--';
   return new Intl.DateTimeFormat('vi-VN', {
+    timeZone: REPORT_TIME_ZONE,
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -27,18 +30,29 @@ function formatDateTime(value) {
 
 function formatDateInput(value) {
   if (!value) return '';
-  const date = new Date(value);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const dateParts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: REPORT_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(new Date(value));
+  const year = dateParts.find((part) => part.type === 'year')?.value || '';
+  const month = dateParts.find((part) => part.type === 'month')?.value || '';
+  const day = dateParts.find((part) => part.type === 'day')?.value || '';
+
   return `${year}-${month}-${day}`;
 }
 
 function formatMonthInput(value) {
   if (!value) return '';
-  const date = new Date(value);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const dateParts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: REPORT_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit'
+  }).formatToParts(new Date(value));
+  const year = dateParts.find((part) => part.type === 'year')?.value || '';
+  const month = dateParts.find((part) => part.type === 'month')?.value || '';
+
   return `${year}-${month}`;
 }
 
@@ -118,7 +132,10 @@ function sortOrdersNewestFirst(items = []) {
 function AdminOrdersPage() {
   const { token } = useAuth();
   const { showToast } = useToast();
+  const { settings } = useSiteSettings();
   const [searchParams, setSearchParams] = useSearchParams();
+  const shouldScrollToTop = searchParams.get('scrollTop') === '1';
+  const detailOrderId = searchParams.get('orderId') || '';
   const initialDateFilter = searchParams.get('date') || '';
   const initialMonthFilter = searchParams.get('month') || '';
   const initialDateFilterMode = searchParams.get('dateMode') || (initialDateFilter ? 'order-day' : initialMonthFilter ? 'order-month' : '');
@@ -192,6 +209,13 @@ function AdminOrdersPage() {
   }, [currentPage, totalPages]);
 
   useEffect(() => {
+    if (shouldScrollToTop) {
+      globalThis.requestAnimationFrame(() => {
+        const adminScrollContainer = document.getElementById('admin-scroll-container');
+        adminScrollContainer?.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      });
+    }
+
     const nextParams = {};
     if (dateFilterMode) {
       nextParams.dateMode = dateFilterMode;
@@ -202,8 +226,11 @@ function AdminOrdersPage() {
     if ((dateFilterMode === 'order-month' || dateFilterMode === 'completed-month') && monthFilter) {
       nextParams.month = monthFilter;
     }
+    if (detailOrderId) {
+      nextParams.orderId = detailOrderId;
+    }
     setSearchParams(nextParams, { replace: true });
-  }, [dateFilterMode, dayFilter, monthFilter, setSearchParams]);
+  }, [dateFilterMode, dayFilter, detailOrderId, monthFilter, setSearchParams, shouldScrollToTop]);
 
   function handleDateModeChange(value) {
     setDateFilterMode(value);
@@ -248,7 +275,7 @@ function AdminOrdersPage() {
     };
   }, [fetchOrders]);
 
-  async function openOrderDetail(orderId) {
+  const openOrderDetail = useCallback(async (orderId) => {
     try {
       setLoadingDetail(true);
       setDetailOpen(true);
@@ -261,7 +288,14 @@ function AdminOrdersPage() {
     } finally {
       setLoadingDetail(false);
     }
-  }
+  }, [token]);
+
+  useEffect(() => {
+    if (!detailOrderId) return;
+    if (detailOpen && selectedOrder?._id === detailOrderId) return;
+
+    openOrderDetail(detailOrderId);
+  }, [detailOpen, detailOrderId, openOrderDetail, selectedOrder?._id]);
 
   async function handleUpdateOrder() {
     if (!selectedOrder) return;
@@ -319,7 +353,8 @@ function AdminOrdersPage() {
             </option>
           ))}
         </select>
-        <select value={dateFilterMode} onChange={(event) => handleDateModeChange(event.target.value)} className="select-field sm:w-56">
+        <div className="space-y-2 sm:max-w-xs">
+        <select value={dateFilterMode} onChange={(event) => handleDateModeChange(event.target.value)} className="select-field w-full">
           <option value="">Theo mặc định</option>
           <option value="order-day">Ngày đặt hàng</option>
           <option value="order-month">Theo tháng đặt hàng</option>
@@ -327,11 +362,12 @@ function AdminOrdersPage() {
           <option value="completed-month">Theo tháng hoàn thành</option>
         </select>
         {(dateFilterMode === 'order-day' || dateFilterMode === 'completed-day') ? (
-          <input type="date" value={dayFilter} onChange={(event) => setDayFilter(event.target.value)} className="input-field sm:w-56" />
+          <input type="date" value={dayFilter} onChange={(event) => setDayFilter(event.target.value)} className="input-field w-full" />
         ) : null}
         {(dateFilterMode === 'order-month' || dateFilterMode === 'completed-month') ? (
-          <input type="month" value={monthFilter} onChange={(event) => setMonthFilter(event.target.value)} className="input-field sm:w-56" />
+          <input type="month" value={monthFilter} onChange={(event) => setMonthFilter(event.target.value)} className="input-field w-full" />
         ) : null}
+        </div>
       </FilterBar>
 
       {loading ? (
@@ -471,9 +507,9 @@ function AdminOrdersPage() {
                       <h4 className="text-base font-semibold text-navy">Thanh toán chuyển khoản</h4>
                       <StatusBadge label={getPaymentStatusLabel(selectedOrder)} tone={getPaymentTone(selectedOrder)} />
                     </div>
-                    <p className="mt-2"><span className="font-semibold text-navy">Ngân hàng:</span> {selectedOrder.bankTransferBankName || 'Techcombank'}</p>
-                    <p className="mt-2"><span className="font-semibold text-navy">Số tài khoản:</span> {selectedOrder.bankTransferAccountNumber || 'YOUR_TECHCOMBANK_ACCOUNT'}</p>
-                    <p className="mt-2"><span className="font-semibold text-navy">Chủ tài khoản:</span> {selectedOrder.bankTransferAccountName || 'YOUR_ACCOUNT_NAME'}</p>
+                    <p className="mt-2"><span className="font-semibold text-navy">Ngân hàng:</span> {selectedOrder.bankTransferBankName || settings.bankName || 'Chưa cấu hình'}</p>
+                    <p className="mt-2"><span className="font-semibold text-navy">Số tài khoản:</span> {selectedOrder.bankTransferAccountNumber || settings.bankAccountNumber || 'Chưa cấu hình'}</p>
+                    <p className="mt-2"><span className="font-semibold text-navy">Chủ tài khoản:</span> {selectedOrder.bankTransferAccountName || settings.bankAccountName || 'Chưa cấu hình'}</p>
                     <p className="mt-2"><span className="font-semibold text-navy">Số tiền:</span> {formatCurrency(selectedOrder.totalPrice)}</p>
                     <p className="mt-2"><span className="font-semibold text-navy">Nội dung:</span> {selectedOrder.bankTransferContent || getDisplayOrderCode(selectedOrder)}</p>
                     {selectedOrder.paidAt ? (

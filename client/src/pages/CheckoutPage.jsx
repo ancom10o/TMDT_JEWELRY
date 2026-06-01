@@ -5,6 +5,7 @@ import AddressAutocompleteField from '../components/AddressAutocompleteField.jsx
 import { useAuth } from '../hooks/useAuth.js';
 import { useCart } from '../hooks/useCart.js';
 import { createOrder, getPublicAssetUrl, validateCoupon } from '../services/api.js';
+import { useSiteSettings } from '../context/SiteSettingsContext.jsx';
 import { getDistrictsByProvince, getProvinces, getWardsByDistrict } from '../services/vietnamAddress.js';
 import { formatCurrency } from '../utils/format.js';
 
@@ -21,7 +22,6 @@ const PAYMENT_OPTIONS = [
   }
 ];
 const BUY_NOW_STORAGE_KEY = 'jewelaura_buy_now_item';
-const FREE_SHIPPING_MIN_TOTAL = 1000000;
 const STANDARD_SHIPPING_FEE = 30000;
 
 function getDisplayOrderCode(order) {
@@ -62,9 +62,10 @@ function filterOptions(options, keyword) {
   return options.filter((option) => stripVietnamese(option.name).includes(normalizedKeyword));
 }
 
-function calculateShippingFee(totalBeforeDiscount) {
+function calculateShippingFee(totalBeforeDiscount, freeShippingThreshold) {
   const safeTotal = Math.max(Number(totalBeforeDiscount) || 0, 0);
-  return safeTotal >= FREE_SHIPPING_MIN_TOTAL ? 0 : STANDARD_SHIPPING_FEE;
+  const safeThreshold = Math.max(Number(freeShippingThreshold) || 1000000, 0);
+  return safeThreshold > 0 && safeTotal >= safeThreshold ? 0 : STANDARD_SHIPPING_FEE;
 }
 
 function createInitialForm() {
@@ -150,6 +151,7 @@ function CheckoutItem({ item }) {
 function CheckoutPage() {
   const [searchParams] = useSearchParams();
   const { token, user, isAuthenticated } = useAuth();
+  const { settings } = useSiteSettings();
   const {
     cartItems,
     selectedCartItems,
@@ -196,7 +198,7 @@ function CheckoutPage() {
   const checkoutItems = isBuyNowMode && buyNowItem ? [buyNowItem] : selectedCartItems;
   const checkoutTotalQuantity = checkoutItems.reduce((sum, item) => sum + item.quantity, 0);
   const checkoutSubtotal = checkoutItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shippingFee = calculateShippingFee(checkoutSubtotal);
+  const shippingFee = calculateShippingFee(checkoutSubtotal, settings.freeShippingThreshold);
   const checkoutFinalTotal = Math.max(checkoutSubtotal - activeDiscountAmount, 0) + shippingFee;
 
   useEffect(() => {
@@ -583,8 +585,9 @@ function CheckoutPage() {
   if (createdOrder) {
     const displayOrderCode = getDisplayOrderCode(createdOrder);
     const isBankTransferOrder = createdOrder.paymentMethod === 'bank_transfer';
-    const bankAccount = createdOrder.bankTransferAccountNumber || 'YOUR_TECHCOMBANK_ACCOUNT';
-    const accountName = createdOrder.bankTransferAccountName || 'YOUR_ACCOUNT_NAME';
+    const bankAccount = createdOrder.bankTransferAccountNumber || '';
+    const accountName = createdOrder.bankTransferAccountName || '';
+    const hasBankInfo = Boolean(createdOrder.bankTransferBankName && bankAccount && accountName);
 
     return (
       <section className="container-page py-10 sm:py-12">
@@ -629,23 +632,27 @@ function CheckoutPage() {
                     alt={`QR thanh toán ${displayOrderCode}`}
                     className="mx-auto h-[280px] w-[280px] rounded-2xl border border-slate-200 bg-white object-contain p-3 sm:h-[320px] sm:w-[320px]"
                   />
-                ) : null}
+                ) : (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
+                    Cấu hình thanh toán chuyển khoản chưa đầy đủ nên chưa thể tạo mã QR. Vui lòng chờ shop liên hệ xác nhận thông tin thanh toán.
+                  </div>
+                )}
 
                 <div className="space-y-3 text-sm text-slate-600">
-                  <p><span className="font-semibold text-navy">Ngân hàng:</span> {createdOrder.bankTransferBankName || 'Techcombank'}</p>
-                  <p><span className="font-semibold text-navy">Số tài khoản:</span> {bankAccount}</p>
-                  <p><span className="font-semibold text-navy">Chủ tài khoản:</span> {accountName}</p>
+                  <p><span className="font-semibold text-navy">Ngân hàng:</span> {createdOrder.bankTransferBankName || 'Chưa cấu hình'}</p>
+                  <p><span className="font-semibold text-navy">Số tài khoản:</span> {bankAccount || 'Chưa cấu hình'}</p>
+                  <p><span className="font-semibold text-navy">Chủ tài khoản:</span> {accountName || 'Chưa cấu hình'}</p>
                   <p><span className="font-semibold text-navy">Số tiền:</span> {formatCurrency(createdOrder.totalPrice)}</p>
                   <p><span className="font-semibold text-navy">Nội dung chuyển khoản:</span> {createdOrder.bankTransferContent || displayOrderCode}</p>
 
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  {hasBankInfo ? <div className="grid gap-3 sm:grid-cols-2">
                     <button type="button" onClick={() => copyText(createdOrder.bankTransferContent || displayOrderCode)} className="btn-outline !px-4 !py-2">
                       Copy nội dung
                     </button>
                     <button type="button" onClick={() => copyText(bankAccount)} className="btn-outline !px-4 !py-2">
                       Copy số tài khoản
                     </button>
-                  </div>
+                  </div> : null}
                 </div>
               </div>
             </div>

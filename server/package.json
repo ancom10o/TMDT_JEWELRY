@@ -9,7 +9,8 @@
     "start": "node server.js",
     "seed": "node src/seeders/seed.js",
     "seed:destroy": "node src/seeders/seed.js --destroy",
-    "search:reindex": "node src/scripts/reindexProductSearch.js"
+    "search:reindex": "node src/scripts/reindexProductSearch.js",
+    "orders:backfill-completed-at": "node src/scripts/backfillOrderCompletedAt.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

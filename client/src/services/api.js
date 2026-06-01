@@ -215,6 +215,21 @@ export async function getAdminDashboard(token, params = {}) {
   return response.data;
 }
 
+export async function getSiteSettings() {
+  const response = await api.get('/site-settings');
+  return response.data;
+}
+
+export async function getAdminSiteSettings(token) {
+  const response = await api.get('/admin/site-settings', buildAuthConfig(token));
+  return response.data;
+}
+
+export async function updateAdminSiteSettings(payload, token) {
+  const response = await api.put('/admin/site-settings', payload, buildAuthConfig(token));
+  return response.data;
+}
+
 export async function getAdminProducts(params = {}, token) {
   const response = await api.get('/admin/products', {
     ...buildAuthConfig(token),

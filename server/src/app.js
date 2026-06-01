@@ -12,6 +12,7 @@ import healthRoutes from './routes/health.routes.js';
 import homeRoutes from './routes/home.routes.js';
 import orderRoutes from './routes/order.routes.js';
 import productRoutes from './routes/product.routes.js';
+import siteSettingRoutes from './routes/siteSetting.routes.js';
 import userRoutes from './routes/user.routes.js';
 import env from './config/env.js';
 import errorHandler from './middlewares/errorHandler.js';
@@ -96,6 +97,7 @@ app.get('/images/:group/:filename', (req, res) => {
 
 app.use('/api/health', healthRoutes);
 app.use('/api/home', homeRoutes);
+app.use('/api/site-settings', siteSettingRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/products', productRoutes);
