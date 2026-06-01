@@ -92,16 +92,16 @@ function HomePage() {
       ) : (
         <section className="container-page py-8 sm:py-12 lg:py-16">
           <div className="rounded-[24px] border border-[#ebe4d8] bg-[linear-gradient(135deg,_#fffdf8_0%,_#f8f2e3_52%,_#f4efe8_100%)] p-5 text-center shadow-[0_18px_60px_rgba(15,23,42,0.05)] sm:p-8 lg:rounded-[34px] lg:p-10">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gold">Homepage CMS</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gold">Homepage</p>
             <h2 className="mt-4 font-display text-[1.8rem] leading-tight text-navy sm:text-[2.3rem] lg:text-[3rem] lg:leading-none">
-              Homepage dang cho duoc cau hinh
+              Homepage đang chờ được cấu hình
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-600 sm:text-[15px]">
-              Hien chua co section nao dang bat. Ban co the vao trang quan tri homepage de tao section dung type va sap xep thu tu hien thi.
+              Hiện chưa có section nào đang bật. Bạn có thể vào trang quản trị homepage để tạo section đúng type và sắp xếp thứ tự hiển thị.
             </p>
             <div className="mt-7">
               <Link to="/products" className="btn-secondary px-6 py-3">
-                Xem danh sach san pham
+                Xem danh sách sản phẩm
               </Link>
             </div>
           </div>

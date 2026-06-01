@@ -8,13 +8,7 @@ const env = {
   mongoUri: process.env.MONGODB_URI || 'mongodb+srv://ha2ca4_db_user:RgL4vRrcZvzPlBzi@db.8dggdhj.mongodb.net/jewelry-shop?retryWrites=true&w=majority&appName=db',
   jwtSecret: process.env.JWT_SECRET || 'dev_secret_key',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
-  clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
-  cloudinary: {
-    cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
-    apiKey: process.env.CLOUDINARY_API_KEY || '',
-    apiSecret: process.env.CLOUDINARY_API_SECRET || '',
-    productFolder: process.env.CLOUDINARY_PRODUCT_FOLDER || 'jewel-aura/products'
-  }
+  clientUrl: process.env.CLIENT_URL || 'http://localhost:5173'
 };
 
 export default env;

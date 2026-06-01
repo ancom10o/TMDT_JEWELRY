@@ -3,8 +3,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
 import { useCart } from '../hooks/useCart.js';
+import { getCategories } from '../services/api.js';
 
-const categoryItems = [
+const fallbackCategoryItems = [
   { label: 'Nhẫn', path: '/products?category=nhan' },
   { label: 'Bông tai', path: '/products?category=bong-tai' },
   { label: 'Dây chuyền', path: '/products?category=day-chuyen' },
@@ -73,6 +74,7 @@ function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [headerCategories, setHeaderCategories] = useState([]);
   const { totalQuantity } = useCart();
   const { user, isAuthenticated, logout } = useAuth();
   const location = useLocation();
@@ -80,6 +82,42 @@ function Header() {
   const accountMenuRef = useRef(null);
 
   const closeMenu = () => setIsMenuOpen(false);
+  const categoryItems = [
+    ...(headerCategories.length > 0
+      ? headerCategories.map((category) => ({
+          label: category.name,
+          path: `/products?category=${category.slug}`
+        }))
+      : fallbackCategoryItems.slice(0, 7)),
+    { label: 'Tất cả sản phẩm', path: '/products' }
+  ];
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadHeaderCategories() {
+      try {
+        const response = await getCategories();
+        const activeCategories = (response.categories || []).filter((category) => category.status === 'active');
+        const selectedCategories = activeCategories.filter((category) => category.showInHeader);
+        const nextCategories = selectedCategories.length > 0 ? selectedCategories : activeCategories.slice(0, 7);
+
+        if (isMounted) {
+          setHeaderCategories(nextCategories.slice(0, 7));
+        }
+      } catch {
+        if (isMounted) {
+          setHeaderCategories([]);
+        }
+      }
+    }
+
+    loadHeaderCategories();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     const currentParams = new globalThis.URLSearchParams(location.search);

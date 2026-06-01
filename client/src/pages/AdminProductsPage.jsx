@@ -13,9 +13,8 @@ import {
   downloadAdminProductsExcel,
   getAdminProducts,
   getCategories,
-  getImageUrl,
-  updateProduct,
-  uploadProductImages
+  getPublicAssetUrl,
+  updateProduct
 } from '../services/api.js';
 import { formatCurrency, formatCurrencyInput } from '../utils/format.js';
 import {
@@ -103,14 +102,7 @@ function buildFormState(product) {
   };
 }
 
-function getFormImageList(formState, uploadedImages = []) {
-  return [
-    ...formState.images.split('\n').map((item) => item.trim()).filter(Boolean),
-    ...uploadedImages
-  ];
-}
-
-function validateForm(formState, imageFiles = []) {
+function validateForm(formState) {
   if (!formState.name.trim()) return 'Tên sản phẩm không được để trống.';
   if (!formState.slug.trim()) return 'Slug không được để trống.';
   if (!formState.description.trim()) return 'Mô tả không được để trống.';
@@ -133,15 +125,13 @@ function validateForm(formState, imageFiles = []) {
   if (!Number.isInteger(stock) || stock < 0) return 'Tồn kho phải là số nguyên lớn hơn hoặc bằng 0.';
   if (!Number.isInteger(sold) || sold < 0) return 'Số lượng đã bán phải là số nguyên lớn hơn hoặc bằng 0.';
 
-  const images = getFormImageList(formState);
-  if (!images.length && imageFiles.length === 0) {
-    return 'Cần ít nhất 1 ảnh sản phẩm.';
-  }
+  const images = formState.images.split('\n').map((item) => item.trim()).filter(Boolean);
+  if (!images.length) return 'Cáº§n Ã­t nháº¥t 1 áº£nh sáº£n pháº©m.';
 
   return '';
 }
 
-function buildPayload(formState, uploadedImages = []) {
+function buildPayload(formState) {
   const materialDetail = formState.materialDetail.trim();
   const size = formState.sizeMode === 'free'
     ? ['Free']
@@ -158,7 +148,7 @@ function buildPayload(formState, uploadedImages = []) {
     costPrice: Number(formState.costPrice || 0),
     originalPrice: Number(formState.originalPrice || 0),
     price: Number(formState.price || 0),
-    images: getFormImageList(formState, uploadedImages),
+    images: formState.images.split('\n').map((item) => item.trim()).filter(Boolean),
     category: formState.category,
     material: materialDetail,
     materialGroup: formState.materialGroup,
@@ -209,10 +199,9 @@ function AdminProductsPage() {
   const [genderFilter, setGenderFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [formState, setFormState] = useState(initialFormState);
-  const [selectedImageFiles, setSelectedImageFiles] = useState([]);
-  const [imageFilePreviews, setImageFilePreviews] = useState([]);
   const [editingProduct, setEditingProduct] = useState(null);
   const [viewingProduct, setViewingProduct] = useState(null);
+  const [activeViewImage, setActiveViewImage] = useState(0);
   const [productToDelete, setProductToDelete] = useState(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formErrorMessage, setFormErrorMessage] = useState('');
@@ -233,17 +222,8 @@ function AdminProductsPage() {
   }, [formErrorMessage]);
 
   useEffect(() => {
-    const previews = selectedImageFiles.map((file) => ({
-      name: file.name,
-      url: globalThis.URL.createObjectURL(file)
-    }));
-
-    setImageFilePreviews(previews);
-
-    return () => {
-      previews.forEach((preview) => globalThis.URL.revokeObjectURL(preview.url));
-    };
-  }, [selectedImageFiles]);
+    setActiveViewImage(0);
+  }, [viewingProduct?._id]);
 
   const loadProducts = useCallback(
     async (page = currentPage) => {
@@ -325,7 +305,6 @@ function AdminProductsPage() {
   function openCreateModal() {
     setEditingProduct(null);
     setFormState(initialFormState);
-    setSelectedImageFiles([]);
     setFormErrorMessage('');
     setIsFormOpen(true);
   }
@@ -333,7 +312,6 @@ function AdminProductsPage() {
   function openEditModal(product) {
     setEditingProduct(product);
     setFormState(buildFormState(product));
-    setSelectedImageFiles([]);
     setFormErrorMessage('');
     setIsFormOpen(true);
   }
@@ -358,16 +336,9 @@ function AdminProductsPage() {
     });
   }
 
-  function handleImageFilesChange(event) {
-    setSelectedImageFiles(Array.from(event.target.files || []));
-    if (formErrorMessage) {
-      setFormErrorMessage('');
-    }
-  }
-
   async function handleSubmit(event) {
     event.preventDefault();
-    const validationMessage = validateForm(formState, selectedImageFiles);
+    const validationMessage = validateForm(formState);
     if (validationMessage) {
       setFormErrorMessage(validationMessage);
       showToast({
@@ -383,10 +354,7 @@ function AdminProductsPage() {
       setSubmitting(true);
       setErrorMessage('');
       setFormErrorMessage('');
-      const uploadedImages = selectedImageFiles.length > 0
-        ? (await uploadProductImages(selectedImageFiles, token)).images || []
-        : [];
-      const payload = buildPayload(formState, uploadedImages);
+      const payload = buildPayload(formState);
 
       if (editingProduct) {
         const response = await updateProduct(editingProduct._id, payload, token);
@@ -402,7 +370,6 @@ function AdminProductsPage() {
       setIsFormOpen(false);
       setEditingProduct(null);
       setFormState(initialFormState);
-      setSelectedImageFiles([]);
       setFormErrorMessage('');
     } catch (error) {
       const message = error.response?.data?.message || 'Không thể lưu sản phẩm.';
@@ -527,48 +494,53 @@ function AdminProductsPage() {
       ) : (
         <div className="space-y-4">
           <DataTable
+            tableClassName="min-w-[1170px] table-fixed"
             columns={[
-              { key: 'sku', label: 'SKU' },
-              { key: 'product', label: 'Sản phẩm' },
-              { key: 'category', label: 'Danh mục' },
-              { key: 'material', label: 'Chất liệu' },
-              { key: 'gender', label: 'Giới tính' },
-              { key: 'price', label: 'Giá bán' },
-              { key: 'stock', label: 'Kho / đã bán' },
-              { key: 'status', label: 'Trạng thái' },
-              { key: 'actions', label: 'Hành động', align: 'right' }
+              { key: 'sku', label: 'SKU', width: 'w-[110px]' },
+              { key: 'product', label: 'Sản phẩm', width: 'w-[360px]' },
+              { key: 'category', label: 'Danh mục', width: 'w-[120px]' },
+              { key: 'gender', label: 'Giới tính', width: 'w-[90px]' },
+              { key: 'price', label: 'Giá bán', width: 'w-[150px]' },
+              { key: 'stock', label: 'Kho / đã bán', width: 'w-[110px]' },
+              { key: 'status', label: 'Trạng thái', width: 'w-[140px]' },
+              { key: 'actions', label: 'Hành động', align: 'right', width: 'w-[190px]' }
             ]}
           >
             {products.map((product) => (
               <tr key={product._id} className="border-t border-slate-100 align-top">
-                <td className="px-5 py-4 font-semibold text-slate-600">{product.sku || '--'}</td>
+                <td className="px-5 py-4 font-semibold text-slate-600">
+                  <span className="block truncate" title={product.sku || ''}>{product.sku || '--'}</span>
+                </td>
                 <td className="px-5 py-4">
-                  <div className="flex gap-3">
-                    <div className="h-16 w-16 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-                      <img src={getImageUrl(product.images?.[0])} alt={product.name} className="h-full w-full object-cover" />
+                  <div className="grid min-w-0 grid-cols-[72px_minmax(0,1fr)] gap-3">
+                    <div className="h-[72px] w-[72px] overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                      {product.images?.[0] ? <img src={getPublicAssetUrl(product.images[0])} alt={product.name} className="h-full w-full object-cover" /> : null}
                     </div>
-                    <div>
-                      <p className="font-semibold text-navy">{product.name}</p>
-                      <p className="mt-1 text-slate-500">{product.slug}</p>
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-navy" title={product.name}>{product.name}</p>
+                      <p className="mt-1 truncate text-slate-500" title={product.slug}>{product.slug}</p>
                     </div>
                   </div>
                 </td>
-                <td className="px-5 py-4 text-slate-600">{product.category?.name || '--'}</td>
-                <td className="px-5 py-4 text-slate-600">{getProductMaterialLabel(product) || '--'}</td>
-                <td className="px-5 py-4 text-slate-600">{getGenderLabel(product.gender) || '--'}</td>
-                <td className="px-5 py-4">
-                  <p className="font-semibold text-navy">{formatCurrency(product.price)}</p>
-                  {getOriginalPrice(product) > product.price ? <p className="mt-1 text-slate-400 line-through">{formatCurrency(getOriginalPrice(product))}</p> : null}
+                <td className="px-5 py-4 text-slate-600">
+                  <span className="block truncate" title={product.category?.name || ''}>{product.category?.name || '--'}</span>
                 </td>
                 <td className="px-5 py-4 text-slate-600">
-                  <p>Tồn: {product.stock}</p>
-                  <p className="mt-1 text-slate-500">Bán: {product.sold ?? 0}</p>
+                  <span className="block truncate" title={getGenderLabel(product.gender) || ''}>{getGenderLabel(product.gender) || '--'}</span>
+                </td>
+                <td className="px-5 py-4">
+                  <p className="truncate font-semibold text-navy" title={formatCurrency(product.price)}>{formatCurrency(product.price)}</p>
+                  {getOriginalPrice(product) > product.price ? <p className="mt-1 truncate text-slate-400 line-through" title={formatCurrency(getOriginalPrice(product))}>{formatCurrency(getOriginalPrice(product))}</p> : null}
+                </td>
+                <td className="px-5 py-4 text-slate-600">
+                  <p className="truncate">Tồn: {product.stock}</p>
+                  <p className="mt-1 truncate text-slate-500">Bán: {product.sold ?? 0}</p>
                 </td>
                 <td className="px-5 py-4">
                   <StatusBadge label={getStatusLabel(product)} tone={getStatusTone(product)} />
                 </td>
                 <td className="px-5 py-4">
-                  <div className="flex justify-end gap-2">
+                  <div className="flex justify-end gap-2 whitespace-nowrap">
                     <button type="button" onClick={() => setViewingProduct(product)} className="btn-outline !px-4 !py-2">
                       Xem
                     </button>
@@ -748,15 +720,7 @@ function AdminProductsPage() {
             </label> */}
             <label className="md:col-span-2">
               <span className="field-label">Danh sách ảnh *</span>
-              <textarea name="images" value={formState.images} onChange={handleChange} rows="4" className="textarea-field" placeholder="Mỗi dòng là 1 URL Cloudinary hoặc đường dẫn local /images/... /uploads/..." />
-              <span className="mt-2 block text-xs text-slate-500">Ảnh local cũ vẫn giữ nguyên. Ảnh file mới sẽ được upload lên Cloudinary khi bấm lưu.</span>
-            </label>
-            <label className="md:col-span-2">
-              <span className="field-label">Upload ảnh mới lên Cloudinary</span>
-              <input type="file" accept="image/*" multiple onChange={handleImageFilesChange} className="input-field" />
-              {selectedImageFiles.length > 0 ? (
-                <span className="mt-2 block text-xs text-slate-500">{selectedImageFiles.length} ảnh sẽ được upload khi lưu sản phẩm.</span>
-              ) : null}
+              <textarea name="images" value={formState.images} onChange={handleChange} rows="4" className="textarea-field" placeholder="Xuống dòng khi thêm ảnh mới" />
             </label>
           </div>
 
@@ -772,25 +736,15 @@ function AdminProductsPage() {
           </div> */}
 
           {previewImages.length > 0 ? (
-            <div className="grid gap-3 sm:grid-cols-3">
-              {previewImages.slice(0, 3).map((image) => (
-                <div key={image} className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-                  <img src={getImageUrl(image)} alt="Preview" className="h-32 w-full object-cover" />
+            <div className="grid grid-cols-3 gap-3">
+              {previewImages.map((image) => (
+                <div key={image} className="aspect-square overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                  <img src={getPublicAssetUrl(image)} alt="Preview" className="h-full w-full object-cover" />
                 </div>
               ))}
             </div>
           ) : null}
 
-
-          {imageFilePreviews.length > 0 ? (
-            <div className="grid gap-3 sm:grid-cols-3">
-              {imageFilePreviews.slice(0, 3).map((image) => (
-                <div key={image.url} className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-                  <img src={image.url} alt={image.name} className="h-32 w-full object-cover" />
-                </div>
-              ))}
-            </div>
-          ) : null}
           <div className="flex justify-end gap-3">
             <button type="button" onClick={() => setIsFormOpen(false)} className="btn-outline">
               Hủy
@@ -811,9 +765,33 @@ function AdminProductsPage() {
       >
         {viewingProduct ? (
           <div className="space-y-5">
-            <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
-              <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50">
-                <img src={getImageUrl(viewingProduct.images?.[0])} alt={viewingProduct.name} className="h-full w-full object-cover" />
+            <div className="grid gap-4 md:grid-cols-[320px_minmax(0,1fr)]">
+              <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-3">
+                <div className="premium-scrollbar flex max-h-[320px] flex-col gap-2 overflow-y-auto pr-1">
+                  {(viewingProduct.images?.length ? viewingProduct.images : ['']).map((image, index) => {
+                    const isActive = index === activeViewImage;
+
+                    return (
+                      <button
+                        key={`${viewingProduct._id}-preview-${index}`}
+                        type="button"
+                        onClick={() => setActiveViewImage(index)}
+                        className={`aspect-square overflow-hidden rounded-2xl border p-1 transition ${
+                          isActive ? 'border-gold bg-[#fff8eb] shadow-[0_10px_22px_rgba(212,175,55,0.14)]' : 'border-slate-200 bg-white hover:border-gold/60'
+                        }`}
+                      >
+                        {image ? (
+                          <img src={getPublicAssetUrl(image)} alt={`${viewingProduct.name} ${index + 1}`} className="h-full w-full rounded-xl object-cover" />
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="aspect-square overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50">
+                  {viewingProduct.images?.[activeViewImage] ? (
+                    <img src={getPublicAssetUrl(viewingProduct.images[activeViewImage])} alt={viewingProduct.name} className="h-full w-full object-cover" />
+                  ) : null}
+                </div>
               </div>
               <div className="space-y-3 text-sm text-slate-600">
                 <p><span className="font-semibold text-navy">Slug:</span> {viewingProduct.slug}</p>

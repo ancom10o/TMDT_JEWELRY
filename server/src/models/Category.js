@@ -33,6 +33,11 @@ const categorySchema = new mongoose.Schema(
       type: String,
       enum: ['active', 'inactive'],
       default: 'active'
+    },
+    showInHeader: {
+      type: Boolean,
+      default: false,
+      index: true
     }
   },
   {

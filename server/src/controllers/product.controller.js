@@ -1,7 +1,6 @@
 import mongoose from 'mongoose';
 import Category from '../models/Category.js';
 import Product from '../models/Product.js';
-import { uploadBufferToCloudinary } from '../utils/cloudinaryUpload.js';
 import { buildProductSearchText, escapeRegex, normalizeText } from '../utils/search.js';
 
 const PUBLIC_PRODUCT_EXCLUDE_FIELDS = '-costPrice';
@@ -537,31 +536,10 @@ export async function createProduct(req, res, next) {
   }
 }
 
-export async function uploadProductImages(req, res, next) {
-  try {
-    const files = req.files || [];
-
-    if (!files.length) {
-      return res.status(400).json({ message: 'Vui long chon it nhat 1 anh san pham.' });
-    }
-
-    const uploadedImages = await Promise.all(
-      files.map(async (file) => {
-        const result = await uploadBufferToCloudinary(file.buffer);
-        return result.secure_url;
-      })
-    );
-
-    res.status(201).json({ images: uploadedImages });
-  } catch (error) {
-    next(error);
-  }
-}
-
 export async function updateProduct(req, res, next) {
   try {
     const payload = buildProductPayload(req.body);
-    const currentProduct = await Product.findById(req.params.id).lean();
+    const currentProduct = await Product.findById(req.params.id);
 
     if (!currentProduct) {
       return res.status(404).json({ message: 'Khong tim thay san pham.' });
@@ -578,16 +556,11 @@ export async function updateProduct(req, res, next) {
     }
 
     await assertSkuIsUnique(payload.sku, req.params.id);
-    payload.searchText = buildProductSearchText({ ...currentProduct, ...payload }, categoryForSearch);
+    Object.assign(currentProduct, payload);
+    currentProduct.searchText = buildProductSearchText(currentProduct, categoryForSearch);
 
-    const product = await Product.findByIdAndUpdate(req.params.id, payload, {
-      new: true,
-      runValidators: true
-    }).populate('category', 'name slug');
-
-    if (!product) {
-      return res.status(404).json({ message: 'Khong tim thay san pham.' });
-    }
+    await currentProduct.save();
+    const product = await currentProduct.populate('category', 'name slug');
 
     res.json({ product });
   } catch (error) {

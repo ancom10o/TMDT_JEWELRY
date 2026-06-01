@@ -8,6 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const publicImagesDirectory = path.resolve(__dirname, '../../public/images');
 const defaultCategoryImage = '/images/category_default_.png';
+const maxHeaderCategories = 7;
 
 function isLocalImageAvailable(imagePath) {
   if (!imagePath || /^https?:\/\//i.test(imagePath)) {
@@ -43,6 +44,34 @@ async function decorateCategory(category) {
   };
 }
 
+async function validateHeaderSelection(payload = {}, categoryId = null) {
+  if (typeof payload.showInHeader !== 'boolean' && payload.status !== 'inactive') {
+    return null;
+  }
+
+  const currentCategory = categoryId ? await Category.findById(categoryId).select('showInHeader status').lean() : null;
+  const activeHeaderFilter = {
+    showInHeader: true,
+    status: 'active',
+    ...(categoryId ? { _id: { $ne: categoryId } } : {})
+  };
+  const selectedCount = await Category.countDocuments(activeHeaderFilter);
+
+  if (payload.showInHeader && selectedCount >= maxHeaderCategories) {
+    return `Chi duoc chon toi da ${maxHeaderCategories} danh muc hien tren header.`;
+  }
+
+  if (payload.showInHeader === false || payload.status === 'inactive') {
+    const isCurrentlySelected = Boolean(currentCategory?.showInHeader && currentCategory?.status === 'active');
+
+    if (isCurrentlySelected && selectedCount < 1) {
+      return 'Header can co it nhat 1 danh muc duoc chon.';
+    }
+  }
+
+  return null;
+}
+
 export async function getCategories(req, res, next) {
   try {
     const categories = await Category.find().populate('parent', 'name slug').sort({ createdAt: -1 });
@@ -69,6 +98,11 @@ export async function getCategoryById(req, res, next) {
 
 export async function createCategory(req, res, next) {
   try {
+    const validationError = await validateHeaderSelection(req.body);
+    if (validationError) {
+      return res.status(400).json({ message: validationError });
+    }
+
     if (req.body.parent) {
       const parentCategory = await Category.findById(req.body.parent);
 
@@ -88,6 +122,11 @@ export async function createCategory(req, res, next) {
 
 export async function updateCategory(req, res, next) {
   try {
+    const validationError = await validateHeaderSelection(req.body, req.params.id);
+    if (validationError) {
+      return res.status(400).json({ message: validationError });
+    }
+
     if (req.body.parent) {
       if (req.body.parent === req.params.id) {
         return res.status(400).json({ message: 'Danh muc khong the tu chon chinh no lam danh muc cha.' });

@@ -609,12 +609,12 @@ function AdminHomepagePage() {
 
     return (
       <div className="space-y-3">
-        <p className="field-label">Chon san pham</p>
+        <p className="field-label">Chọn sản phẩm</p>
         <input
           type="search"
           value={productSearchKeyword}
           onChange={(event) => setProductSearchKeyword(event.target.value)}
-          placeholder="Go ten, slug hoac danh muc san pham..."
+          placeholder="Gõ tên, slug hoặc danh mục sản phẩm..."
           className="input-field"
         />
         <div className="max-h-80 space-y-2 overflow-y-auto rounded-[24px] border border-slate-200 bg-slate-50 p-3">
@@ -668,7 +668,7 @@ function AdminHomepagePage() {
                       <img src={getPublicAssetUrl(banner.imageUrl)} alt={banner.name} className="h-full w-full object-cover object-center" />
                     </div>
                     <p className="mt-3 text-sm font-semibold text-navy">{banner.name}</p>
-                    <p className="mt-1 text-xs text-slate-500">{banner.title || 'Khong co tieu de'}</p>
+                    <p className="mt-1 text-xs text-slate-500">{banner.title || 'Không có tiêu đề'}</p>
                     <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">{getBannerTypeMeta(banner.bannerType).label}</p>
                   </div>
                 </div>
@@ -764,7 +764,7 @@ function AdminHomepagePage() {
                 <span className="field-label">Link button</span>
                 <input name="buttonLink" value={sectionFormState.buttonLink} onChange={handleSectionChange} className="input-field" />
               </label>
-              <label>
+              {/* <label>
                 <span className="field-label">Variant layout</span>
                 <select
                   value={sectionFormState.settings.variant || 'listing'}
@@ -774,7 +774,7 @@ function AdminHomepagePage() {
                   <option value="listing">Listing</option>
                   <option value="compact">Compact</option>
                 </select>
-              </label>
+              </label> */}
               <label>
                 <span className="field-label">Nguồn sản phẩm</span>
                 <select
@@ -957,9 +957,9 @@ function AdminHomepagePage() {
   return (
     <section className="space-y-6">
       <AdminPageHeader
-        eyebrow="Homepage CMS"
-        title="Quản lý homepage theo type"
-        description="Mỗi section homepage có type rõ ràng."
+        eyebrow="Homepage"
+        title="Quản lý homepage"
+        description="Lựa chọn section phù hợp."
         meta={loading ? 'Đang tải cấu hình...' : `${activeSections}/${sections.length} section đang hiển thị`}
         actions={
           <div className="flex flex-wrap gap-3">

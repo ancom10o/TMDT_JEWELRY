@@ -198,9 +198,34 @@ async function generateSku() {
   return `JA-${String(latestNumber + 1).padStart(6, '0')}`;
 }
 
+function normalizeSlugWithSku(slug, sku) {
+  const normalizedSlug = String(slug || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^-+|-+$/g, '');
+  const normalizedSku = String(sku || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  if (!normalizedSlug || !normalizedSku || normalizedSlug === normalizedSku || normalizedSlug.endsWith(`-${normalizedSku}`)) {
+    return normalizedSlug;
+  }
+
+  return `${normalizedSlug}-${normalizedSku}`;
+}
+
 productSchema.pre('validate', async function normalizeLegacyProductFields(next) {
   if (!this.sku) {
     this.sku = await generateSku();
+  }
+
+  let slugWasNormalized = false;
+  if (this.slug && this.sku && (this.isNew || this.isModified('slug') || this.isModified('sku'))) {
+    const currentSlug = this.slug;
+    this.slug = normalizeSlugWithSku(this.slug, this.sku);
+    slugWasNormalized = currentSlug !== this.slug;
   }
 
   if (!this.originalPrice) {
@@ -217,6 +242,7 @@ productSchema.pre('validate', async function normalizeLegacyProductFields(next) 
   }
 
   if (
+    slugWasNormalized ||
     !this.searchText ||
     (!this.isModified('searchText') &&
       (this.isModified('name') ||

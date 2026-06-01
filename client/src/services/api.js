@@ -19,22 +19,17 @@ function buildAuthConfig(token) {
 }
 
 const publicAssetBaseUrl = baseURL.replace(/\/api\/?$/, '');
-const defaultProductImage = '/images/category_default_.png';
-
-export function getImageUrl(image) {
-  if (!image) {
-    return `${publicAssetBaseUrl}${defaultProductImage}`;
-  }
-
-  if (/^https?:\/\//i.test(image)) {
-    return image;
-  }
-
-  return `${publicAssetBaseUrl}${image.startsWith('/') ? image : `/${image}`}`;
-}
 
 export function getPublicAssetUrl(path) {
-  return getImageUrl(path);
+  if (!path) {
+    return '';
+  }
+
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+
+  return `${publicAssetBaseUrl}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
 export async function getProducts(params = {}) {
@@ -44,23 +39,6 @@ export async function getProducts(params = {}) {
 
 export async function createProduct(payload, token) {
   const response = await api.post('/products', payload, buildAuthConfig(token));
-  return response.data;
-}
-
-export async function uploadProductImages(files, token) {
-  const formData = new FormData();
-  Array.from(files || []).forEach((file) => {
-    formData.append('images', file);
-  });
-
-  const response = await api.post('/products/upload-images', formData, {
-    ...buildAuthConfig(token),
-    headers: {
-      ...buildAuthConfig(token).headers,
-      'Content-Type': 'multipart/form-data'
-    }
-  });
-
   return response.data;
 }
 

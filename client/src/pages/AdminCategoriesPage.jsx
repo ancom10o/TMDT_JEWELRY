@@ -14,6 +14,7 @@ const initialFormState = {
   slug: '',
   description: '',
   image: '',
+  showInHeader: false,
   status: 'active'
 };
 
@@ -33,6 +34,7 @@ function buildFormState(category) {
     slug: category.slug || '',
     description: category.description || '',
     image: category.image || '',
+    showInHeader: Boolean(category.showInHeader),
     status: category.status || 'active'
   };
 }
@@ -51,6 +53,7 @@ function AdminCategoriesPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const selectedHeaderCount = categories.filter((category) => category.status === 'active' && category.showInHeader).length;
 
   const filteredCategories = useMemo(() => {
     return categories.filter((category) => {
@@ -96,12 +99,41 @@ function AdminCategoriesPage() {
   }
 
   function handleChange(event) {
-    const { name, value } = event.target;
+    const { checked, name, type, value } = event.target;
     setFormState((current) => {
-      const next = { ...current, [name]: value };
+      const next = { ...current, [name]: type === 'checkbox' ? checked : value };
       if (name === 'name' && !editingCategory) next.slug = normalizeSlug(value);
       return next;
     });
+  }
+
+  async function handleToggleHeaderCategory(category) {
+    const nextValue = !category.showInHeader;
+
+    if (nextValue && selectedHeaderCount >= 7) {
+      showToast({ title: 'Chỉ được chọn tối đa 7 danh mục', type: 'error' });
+      return;
+    }
+
+    if (!nextValue && category.showInHeader && selectedHeaderCount <= 1) {
+      showToast({ title: 'Header cần ít nhất 1 danh mục', type: 'error' });
+      return;
+    }
+
+    try {
+      const response = await updateCategory(category._id, { showInHeader: nextValue }, token);
+      setCategories((current) => current.map((item) => (item._id === category._id ? response.category : item)));
+      showToast({
+        title: nextValue ? 'Đã thêm danh mục lên header' : 'Đã bỏ danh mục khỏi header',
+        type: 'success'
+      });
+    } catch (error) {
+      showToast({
+        title: 'Không thể cập nhật header',
+        description: error.response?.data?.message || '',
+        type: 'error'
+      });
+    }
   }
 
   async function handleSubmit(event) {
@@ -119,6 +151,7 @@ function AdminCategoriesPage() {
         slug: normalizeSlug(formState.slug || formState.name),
         description: formState.description.trim(),
         image: formState.image.trim(),
+        showInHeader: Boolean(formState.showInHeader),
         parent: null,
         status: formState.status
       };
@@ -201,6 +234,7 @@ function AdminCategoriesPage() {
             { key: 'name', label: 'Danh mục' },
             { key: 'products', label: 'Số sản phẩm' },
             { key: 'status', label: 'Trạng thái' },
+            { key: 'header', label: `Header (${selectedHeaderCount}/7)` },
             { key: 'actions', label: 'Hành động', align: 'right' }
           ]}
         >
@@ -220,6 +254,18 @@ function AdminCategoriesPage() {
               <td className="px-5 py-4 text-slate-600">{category.productCount ?? 0}</td>
               <td className="px-5 py-4">
                 <StatusBadge label={category.status === 'active' ? 'Hoạt động' : 'Tạm ẩn'} tone={category.status === 'active' ? 'success' : 'neutral'} />
+              </td>
+              <td className="px-5 py-4">
+                <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(category.showInHeader)}
+                    disabled={category.status !== 'active'}
+                    onChange={() => handleToggleHeaderCategory(category)}
+                    className="h-4 w-4 rounded border-slate-300 text-navy focus:ring-gold"
+                  />
+                  <span>{category.showInHeader ? 'Hiện' : 'Ẩn'}</span>
+                </label>
               </td>
               <td className="px-5 py-4">
                 <div className="flex justify-end gap-2">
