@@ -406,6 +406,22 @@ export async function updateOrderStatus(req, res, next) {
 
     if (typeof req.body.status !== 'undefined') {
       const nextStatus = req.body.status === 'delivered' ? 'completed' : req.body.status;
+      const allowedTransitions = {
+        pending: order.paymentMethod === 'cod' ? ['confirmed'] : [],
+        confirmed: ['shipping'],
+        shipping: ['completed'],
+        completed: [],
+        cancelled: []
+      };
+
+      if (!allowedTransitions[order.status]?.includes(nextStatus)) {
+        return res.status(400).json({ message: 'Trang thai don hang khong dung quy trinh xu ly.' });
+      }
+
+      if (nextStatus === 'confirmed' && order.paymentMethod === 'bank_transfer' && order.paymentStatus !== 'paid') {
+        return res.status(400).json({ message: 'Don chuyen khoan can xac nhan thanh toan truoc.' });
+      }
+
       order.status = nextStatus;
 
       if (nextStatus === 'completed' && !order.completedAt) {
@@ -418,6 +434,10 @@ export async function updateOrderStatus(req, res, next) {
     }
 
     if (typeof req.body.isPaid !== 'undefined') {
+      if (order.paymentMethod === 'bank_transfer' && req.body.isPaid && order.status !== 'pending') {
+        return res.status(400).json({ message: 'Chi xac nhan thanh toan chuyen khoan khi don dang cho xac nhan.' });
+      }
+
       order.isPaid = req.body.isPaid;
       order.paidAt = req.body.isPaid ? new Date() : null;
       order.paymentStatus = req.body.isPaid ? 'paid' : order.paymentMethod === 'bank_transfer' ? 'pending' : 'unpaid';
@@ -445,6 +465,10 @@ export async function confirmBankTransferPayment(req, res, next) {
 
     if (order.paymentMethod !== 'bank_transfer') {
       return res.status(400).json({ message: 'Đơn hàng này không dùng phương thức chuyển khoản.' });
+    }
+
+    if (order.status !== 'pending') {
+      return res.status(400).json({ message: 'Chi xac nhan thanh toan khi don dang cho xac nhan.' });
     }
 
     order.paymentStatus = 'paid';

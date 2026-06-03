@@ -1,10 +1,11 @@
 /* eslint-disable react/prop-types */
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import AdminModal from '../components/admin/AdminModal.jsx';
 import DataTable from '../components/admin/DataTable.jsx';
 import StatusBadge from '../components/admin/StatusBadge.jsx';
 import { useAuth } from '../hooks/useAuth.js';
-import { getAdminDashboard, getPublicAssetUrl } from '../services/api.js';
+import { confirmOrderPayment, getAdminDashboard, getOrderDetail, getPublicAssetUrl, updateOrderStatus } from '../services/api.js';
 import { formatCurrency } from '../utils/format.js';
 
 function formatDateTime(value) {
@@ -46,7 +47,7 @@ function getOrderStatusLabel(status) {
   const labels = {
     pending: 'Chờ xử lý',
     processing: 'Đang xử lý',
-    confirmed: 'Đang xử lý',
+    confirmed: 'Đã xác nhận',
     shipping: 'Đang giao',
     completed: 'Hoàn thành',
     cancelled: 'Đã hủy'
@@ -96,6 +97,56 @@ function getPaymentTone(status, isPaid) {
   if (status === 'pending') return 'warning';
   if (status === 'failed') return 'danger';
   return 'neutral';
+}
+
+function canShowBankTransferPayment(order) {
+  return Boolean(order?.orderCode) && order.paymentMethod === 'bank_transfer';
+}
+
+function canConfirmBankTransferPayment(order) {
+  return canShowBankTransferPayment(order) && order.status === 'pending' && order.paymentStatus !== 'paid' && !order.isPaid;
+}
+
+function getNextOrderAction(order) {
+  if (!order) return null;
+
+  if (order.status === 'pending' && order.paymentMethod === 'cod') {
+    return {
+      status: 'confirmed',
+      label: 'Xác nhận đơn COD',
+      description: 'Đơn COD sẽ chuyển sang trạng thái đã xác nhận.'
+    };
+  }
+
+  if (order.status === 'confirmed') {
+    return {
+      status: 'shipping',
+      label: 'Đang giao hàng',
+      description: 'Đơn đã xác nhận sẽ chuyển sang trạng thái đang giao.'
+    };
+  }
+
+  if (order.status === 'shipping') {
+    return {
+      status: 'completed',
+      label: 'Hoàn thành đơn',
+      description: 'Đơn đang giao sẽ chuyển sang trạng thái hoàn thành.'
+    };
+  }
+
+  return null;
+}
+
+function getWorkflowNote(order) {
+  if (!order) return '';
+
+  if (order.status === 'pending' && order.paymentMethod === 'bank_transfer' && order.paymentStatus !== 'paid' && !order.isPaid) {
+    return 'Đơn chuyển khoản cần xác nhận thanh toán trước. Sau khi xác nhận, đơn sẽ tự chuyển sang đã xác nhận.';
+  }
+
+  if (order.status === 'completed') return 'Đơn hàng đã hoàn thành.';
+  if (order.status === 'cancelled') return 'Đơn hàng đã bị hủy.';
+  return '';
 }
 
 function DashboardIcon({ type }) {
@@ -148,6 +199,142 @@ function ViewAllLink({ to, label = 'Xem tất cả' }) {
     <Link to={to} className="w-fit rounded-full border border-slate-200 px-4 py-2 text-xs font-bold text-navy transition hover:border-gold hover:bg-gold/10">
       {label}
     </Link>
+  );
+}
+
+function getShippingAddressText(address = {}) {
+  return [address.addressLine, address.ward, address.district, address.city].filter(Boolean).join(', ') || '--';
+}
+
+function OrderDetailPanel({ order, loading, updating, confirmingPayment, onUpdateStatus, onConfirmPayment }) {
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="skeleton-block h-16" />
+        ))}
+      </div>
+    );
+  }
+
+  if (!order) {
+    return <div className="state-empty">Chưa có dữ liệu chi tiết đơn hàng.</div>;
+  }
+
+  const nextAction = getNextOrderAction(order);
+  const workflowNote = getWorkflowNote(order);
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+          <h4 className="text-base font-semibold text-navy">Khách hàng</h4>
+          <p className="mt-3"><span className="font-semibold text-navy">Tên:</span> {order.user?.fullName || order.shippingAddress?.fullName || '--'}</p>
+          <p className="mt-2"><span className="font-semibold text-navy">Email:</span> {order.user?.email || '--'}</p>
+          <p className="mt-2"><span className="font-semibold text-navy">Điện thoại:</span> {order.shippingAddress?.phone || '--'}</p>
+          <p className="mt-2"><span className="font-semibold text-navy">Địa chỉ:</span> {getShippingAddressText(order.shippingAddress)}</p>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+          <h4 className="text-base font-semibold text-navy">Thông tin đơn</h4>
+          <p className="mt-3"><span className="font-semibold text-navy">Mã đơn:</span> #{getOrderCode(order)}</p>
+          <p className="mt-2"><span className="font-semibold text-navy">Ngày đặt:</span> {formatDateTime(order.createdAt)}</p>
+          <p className="mt-2"><span className="font-semibold text-navy">Phương thức:</span> {getPaymentMethodLabel(order.paymentMethod)}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <StatusBadge label={getPaymentStatusLabel(order.paymentStatus, order.isPaid)} tone={getPaymentTone(order.paymentStatus, order.isPaid)} />
+            <StatusBadge label={getOrderStatusLabel(order.status)} tone={getOrderStatusTone(order.status)} />
+          </div>
+        </div>
+      </div>
+
+      {order.paymentMethod === 'bank_transfer' ? (
+        <div className="rounded-2xl border border-[#e8dcc0] bg-[#fff9ec] p-4 text-sm text-slate-600">
+          <h4 className="text-base font-semibold text-navy">Thanh toán chuyển khoản</h4>
+          <div className="mt-3 grid gap-4 md:grid-cols-[180px_minmax(0,1fr)] md:items-center">
+            {order.bankTransferQrUrl ? (
+              <img src={order.bankTransferQrUrl} alt={`QR thanh toán ${getOrderCode(order)}`} className="h-40 w-40 rounded-2xl border border-slate-200 bg-white object-contain p-2" />
+            ) : (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-800">Chưa có QR thanh toán.</div>
+            )}
+            <div>
+              <p><span className="font-semibold text-navy">Ngân hàng:</span> {order.bankTransferBankName || '--'}</p>
+              <p className="mt-2"><span className="font-semibold text-navy">Số tài khoản:</span> {order.bankTransferAccountNumber || '--'}</p>
+              <p className="mt-2"><span className="font-semibold text-navy">Chủ tài khoản:</span> {order.bankTransferAccountName || '--'}</p>
+              <p className="mt-2"><span className="font-semibold text-navy">Nội dung:</span> {order.bankTransferContent || getOrderCode(order)}</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="rounded-2xl border border-slate-200 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h4 className="text-base font-semibold text-navy">Xử lý đơn hàng</h4>
+            <p className="mt-1 text-sm text-slate-500">Trạng thái hiện tại của đơn và bước xử lý kế tiếp.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <StatusBadge label={getOrderStatusLabel(order.status)} tone={getOrderStatusTone(order.status)} />
+            <StatusBadge label={getPaymentStatusLabel(order.paymentStatus, order.isPaid)} tone={getPaymentTone(order.paymentStatus, order.isPaid)} />
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl bg-slate-50 p-4">
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Trạng thái đơn hàng</p>
+            <div className="mt-3">
+              <StatusBadge label={getOrderStatusLabel(order.status)} tone={getOrderStatusTone(order.status)} />
+            </div>
+          </div>
+          <div className="rounded-2xl bg-slate-50 p-4">
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Thanh toán</p>
+            <div className="mt-3">
+              <StatusBadge label={getPaymentStatusLabel(order.paymentStatus, order.isPaid)} tone={getPaymentTone(order.paymentStatus, order.isPaid)} />
+            </div>
+          </div>
+        </div>
+        <p className="mt-3 text-sm leading-6 text-slate-500">
+          {workflowNote || nextAction?.description || 'Đơn hiện không còn bước xử lý tiếp theo.'}
+        </p>
+        <div className="mt-4 flex flex-wrap justify-end gap-3">
+          {canConfirmBankTransferPayment(order) ? (
+            <button type="button" onClick={onConfirmPayment} disabled={confirmingPayment} className="btn-secondary">
+              {confirmingPayment ? 'Đang xác nhận...' : 'Xác nhận thanh toán'}
+            </button>
+          ) : null}
+          <button type="button" onClick={() => onUpdateStatus(nextAction?.status)} disabled={updating || !nextAction} className="btn-outline">
+            {updating ? 'Đang cập nhật...' : (nextAction?.label || 'Không có bước tiếp theo')}
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <h4 className="text-base font-semibold text-navy">Sản phẩm</h4>
+        <div className="mt-3 space-y-3">
+          {(order.items || []).map((item, index) => {
+            const imageUrl = getPublicAssetUrl(item.image || item.product?.images?.[0]);
+
+            return (
+              <article key={`${item.product?._id || item.name}-${index}`} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-3 sm:grid-cols-[64px_minmax(0,1fr)_auto] sm:items-center">
+                <div className="h-16 w-16 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                  {imageUrl ? <img src={imageUrl} alt={item.name || item.productName} className="h-full w-full object-cover" /> : null}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-navy">{item.name || item.productName || item.product?.name || '--'}</p>
+                  <p className="mt-1 text-sm text-slate-500">SL: {item.quantity} {item.selectedSize ? `· Size: ${item.selectedSize}` : ''}</p>
+                </div>
+                <p className="font-semibold text-slate-700">{formatCurrency((item.price || 0) * (item.quantity || 0))}</p>
+              </article>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+        <div className="flex justify-between gap-3"><span>Tạm tính</span><span className="font-semibold text-navy">{formatCurrency(order.totalBeforeDiscount)}</span></div>
+        <div className="mt-2 flex justify-between gap-3"><span>Giảm giá</span><span className="font-semibold text-emerald-700">-{formatCurrency(order.discountAmount)}</span></div>
+        <div className="mt-2 flex justify-between gap-3"><span>Phí vận chuyển</span><span className="font-semibold text-navy">{order.shippingFee > 0 ? formatCurrency(order.shippingFee) : 'Miễn phí'}</span></div>
+        <div className="mt-3 flex justify-between gap-3 border-t border-slate-200 pt-3 text-base"><span className="font-semibold text-navy">Tổng tiền</span><span className="font-bold text-navy">{formatCurrency(order.totalPrice)}</span></div>
+      </div>
+    </div>
   );
 }
 
@@ -254,6 +441,11 @@ function AdminDashboardPage() {
   const [selectedRevenueDay, setSelectedRevenueDay] = useState(currentDate.getDate());
   const [lastUpdated, setLastUpdated] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [updatingOrder, setUpdatingOrder] = useState(false);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -300,6 +492,81 @@ function AdminDashboardPage() {
     navigate(`/admin/orders?dateMode=completed-day&date=${date}&scrollTop=1`);
   }
 
+  async function openDashboardOrderDetail(orderId) {
+    try {
+      setDetailOpen(true);
+      setLoadingDetail(true);
+      setSelectedOrder(null);
+      setErrorMessage('');
+      const response = await getOrderDetail(orderId, token);
+      setSelectedOrder(response.order || null);
+    } catch (error) {
+      setErrorMessage(error.response?.data?.message || 'Không thể tải chi tiết đơn hàng.');
+    } finally {
+      setLoadingDetail(false);
+    }
+  }
+
+  function closeDashboardOrderDetail() {
+    setDetailOpen(false);
+    setSelectedOrder(null);
+  }
+
+  async function refreshDashboardSnapshot() {
+    const dashboardResponse = await getAdminDashboard(token, { year: chartYear });
+    setDashboard(dashboardResponse);
+    setLastUpdated(new Date());
+  }
+
+  function mergeDashboardOrder(updatedOrder) {
+    setSelectedOrder(updatedOrder);
+    setDashboard((current) => {
+      if (!current) return current;
+
+      const patchOrder = (order) => (order._id === updatedOrder._id ? { ...order, ...updatedOrder } : order);
+
+      return {
+        ...current,
+        recentOrders: (current.recentOrders || []).map(patchOrder),
+        pendingBankTransferOrders: (current.pendingBankTransferOrders || [])
+          .map(patchOrder)
+          .filter((order) => order.paymentMethod === 'bank_transfer' && order.paymentStatus === 'pending' && order.status !== 'cancelled')
+      };
+    });
+  }
+
+  async function handleDashboardUpdateOrder(nextStatus) {
+    if (!selectedOrder || !nextStatus) return;
+
+    try {
+      setUpdatingOrder(true);
+      setErrorMessage('');
+      const response = await updateOrderStatus(selectedOrder._id, { status: nextStatus }, token);
+      mergeDashboardOrder(response.order);
+      await refreshDashboardSnapshot();
+    } catch (error) {
+      setErrorMessage(error.response?.data?.message || 'Không thể cập nhật trạng thái đơn hàng.');
+    } finally {
+      setUpdatingOrder(false);
+    }
+  }
+
+  async function handleDashboardConfirmPayment() {
+    if (!selectedOrder) return;
+
+    try {
+      setConfirmingPayment(true);
+      setErrorMessage('');
+      const response = await confirmOrderPayment(selectedOrder._id, token);
+      mergeDashboardOrder(response.order);
+      await refreshDashboardSnapshot();
+    } catch (error) {
+      setErrorMessage(error.response?.data?.message || 'Không thể xác nhận thanh toán.');
+    } finally {
+      setConfirmingPayment(false);
+    }
+  }
+
   const stats = [
     {
       label: 'Tổng sản phẩm',
@@ -328,7 +595,7 @@ function AdminDashboardPage() {
     {
       label: 'Đơn chờ xử lý',
       value: dashboard?.stats?.pendingOrders ?? 0,
-      note: 'Đơn pending/processing cần xử lý',
+      note: 'Đơn pending/confirmed cần xử lý',
       icon: 'clock',
       accent: 'bg-amber-50 text-amber-700 ring-amber-100',
       to: '/admin/orders'
@@ -469,9 +736,9 @@ function AdminDashboardPage() {
                   {formatDateTime(order.createdAt)}
                 </td>
                 <td className="px-5 py-4 text-right">
-                  <Link to={`/admin/orders?orderId=${order._id}&scrollTop=1`} className="btn-outline !px-4 !py-2">
+                  <button type="button" onClick={() => openDashboardOrderDetail(order._id)} className="btn-outline !px-4 !py-2">
                     Xem
-                  </Link>
+                  </button>
                 </td>
               </tr>
             ))}
@@ -506,9 +773,9 @@ function AdminDashboardPage() {
                   <td className="px-5 py-4 text-slate-600">{order.bankTransferContent || getOrderCode(order)}</td>
                   <td className="px-5 py-4 text-slate-500">{formatDateTime(order.createdAt)}</td>
                   <td className="px-5 py-4 text-right">
-                    <Link to={`/admin/orders?orderId=${order._id}&scrollTop=1`} className="btn-outline !px-4 !py-2">
+                    <button type="button" onClick={() => openDashboardOrderDetail(order._id)} className="btn-outline !px-4 !py-2">
                       Xem
-                    </Link>
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -555,6 +822,23 @@ function AdminDashboardPage() {
           )}
         </SectionCard>
       </div>
+
+      <AdminModal
+        open={detailOpen}
+        title="Chi tiết đơn hàng"
+        description={selectedOrder ? `Đơn #${getOrderCode(selectedOrder)}` : 'Đang tải thông tin đơn hàng'}
+        onClose={closeDashboardOrderDetail}
+        width="max-w-5xl"
+      >
+        <OrderDetailPanel
+          order={selectedOrder}
+          loading={loadingDetail}
+          updating={updatingOrder}
+          confirmingPayment={confirmingPayment}
+          onUpdateStatus={handleDashboardUpdateOrder}
+          onConfirmPayment={handleDashboardConfirmPayment}
+        />
+      </AdminModal>
     </section>
   );
 }

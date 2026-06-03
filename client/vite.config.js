@@ -5,6 +5,18 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    host: true
+    host: true,
+    proxy: {
+      '/api': {
+        target: 'https://tmdt-jewelry.onrender.com',
+        changeOrigin: true,
+        secure: true
+      },
+      '/images': {
+        target: 'https://tmdt-jewelry.onrender.com',
+        changeOrigin: true,
+        secure: true
+      }
+    }
   }
 });

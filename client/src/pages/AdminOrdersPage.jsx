@@ -11,10 +11,10 @@ import { useAuth } from '../hooks/useAuth.js';
 import { confirmOrderPayment, getOrderDetail, getOrders, getPublicAssetUrl, updateOrderStatus } from '../services/api.js';
 import { formatCurrency } from '../utils/format.js';
 
-const statusOptions = ['pending', 'confirmed', 'shipping', 'completed', 'cancelled'];
 const AUTO_REFRESH_INTERVAL_MS = 5000;
 const ORDERS_PER_PAGE = 20;
 const REPORT_TIME_ZONE = 'Asia/Ho_Chi_Minh';
+const ORDER_STATUS_OPTIONS = ['pending', 'confirmed', 'shipping', 'completed', 'cancelled'];
 
 function formatDateTime(value) {
   if (!value) return '--';
@@ -122,7 +122,37 @@ function canShowBankTransferPayment(order) {
 }
 
 function canConfirmBankTransferPayment(order) {
-  return canShowBankTransferPayment(order) && order.paymentStatus !== 'paid' && !order.isPaid;
+  return canShowBankTransferPayment(order) && order.status === 'pending' && order.paymentStatus !== 'paid' && !order.isPaid;
+}
+
+function getNextOrderAction(order) {
+  if (!order) return null;
+
+  if (order.status === 'pending' && order.paymentMethod === 'cod') {
+    return { status: 'confirmed', label: 'Xác nhận đơn COD', description: 'Đơn COD sẽ chuyển sang trạng thái đã xác nhận.' };
+  }
+
+  if (order.status === 'confirmed') {
+    return { status: 'shipping', label: 'Đang giao hàng', description: 'Đơn đã xác nhận sẽ chuyển sang trạng thái đang giao.' };
+  }
+
+  if (order.status === 'shipping') {
+    return { status: 'completed', label: 'Hoàn thành đơn', description: 'Đơn đang giao sẽ chuyển sang trạng thái hoàn thành.' };
+  }
+
+  return null;
+}
+
+function getWorkflowNote(order) {
+  if (!order) return '';
+
+  if (order.status === 'pending' && order.paymentMethod === 'bank_transfer' && order.paymentStatus !== 'paid' && !order.isPaid) {
+    return 'Đơn chuyển khoản cần xác nhận thanh toán trước. Sau khi xác nhận, đơn sẽ tự chuyển sang đã xác nhận.';
+  }
+
+  if (order.status === 'completed') return 'Đơn hàng đã hoàn thành.';
+  if (order.status === 'cancelled') return 'Đơn hàng đã bị hủy.';
+  return '';
 }
 
 function sortOrdersNewestFirst(items = []) {
@@ -150,7 +180,6 @@ function AdminOrdersPage() {
   const [dayFilter, setDayFilter] = useState(initialDateFilter);
   const [monthFilter, setMonthFilter] = useState(initialMonthFilter);
   const [detailOpen, setDetailOpen] = useState(false);
-  const [statusValue, setStatusValue] = useState('pending');
   const [updating, setUpdating] = useState(false);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -282,7 +311,6 @@ function AdminOrdersPage() {
       const response = await getOrderDetail(orderId, token);
       const order = response.order;
       setSelectedOrder(order);
-      setStatusValue(order.status || 'pending');
     } catch (error) {
       setErrorMessage(error.response?.data?.message || 'Không thể tải chi tiết đơn hàng.');
     } finally {
@@ -297,12 +325,12 @@ function AdminOrdersPage() {
     openOrderDetail(detailOrderId);
   }, [detailOpen, detailOrderId, openOrderDetail, selectedOrder?._id]);
 
-  async function handleUpdateOrder() {
-    if (!selectedOrder) return;
+  async function handleUpdateOrder(nextStatus) {
+    if (!selectedOrder || !nextStatus) return;
 
     try {
       setUpdating(true);
-      const response = await updateOrderStatus(selectedOrder._id, { status: statusValue }, token);
+      const response = await updateOrderStatus(selectedOrder._id, { status: nextStatus }, token);
       setSelectedOrder(response.order);
       setOrders((current) => current.map((item) => (item._id === response.order._id ? { ...item, ...response.order } : item)));
       showToast({ title: 'Đã cập nhật đơn hàng', type: 'success' });
@@ -321,7 +349,6 @@ function AdminOrdersPage() {
       setConfirmingPayment(true);
       const response = await confirmOrderPayment(selectedOrder._id, token);
       setSelectedOrder(response.order);
-      setStatusValue(response.order.status || 'confirmed');
       setOrders((current) => current.map((item) => (item._id === response.order._id ? { ...item, ...response.order } : item)));
       showToast({ title: 'Đã xác nhận thanh toán', type: 'success' });
     } catch (error) {
@@ -330,6 +357,15 @@ function AdminOrdersPage() {
     } finally {
       setConfirmingPayment(false);
     }
+  }
+
+  function closeOrderDetail() {
+    setDetailOpen(false);
+    setSelectedOrder(null);
+    const nextParams = new globalThis.URLSearchParams(searchParams);
+    nextParams.delete('orderId');
+    nextParams.delete('scrollTop');
+    setSearchParams(nextParams, { replace: true });
   }
 
   return (
@@ -347,7 +383,7 @@ function AdminOrdersPage() {
         <input value={searchKeyword} onChange={(event) => setSearchKeyword(event.target.value)} placeholder="Tìm mã đơn, tên, email..." className="input-field sm:max-w-sm" />
         <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="select-field sm:max-w-xs">
           <option value="">Tất cả trạng thái</option>
-          {statusOptions.map((status) => (
+          {ORDER_STATUS_OPTIONS.map((status) => (
             <option key={status} value={status}>
               {getStatusLabel(status)}
             </option>
@@ -461,7 +497,7 @@ function AdminOrdersPage() {
         </>
       )}
 
-      <AdminModal open={detailOpen} title="Chi tiết đơn hàng" description={selectedOrder ? `Đơn #${getDisplayOrderCode(selectedOrder)}` : ''} onClose={() => setDetailOpen(false)} width="max-w-5xl">
+      <AdminModal open={detailOpen} title="Chi tiết đơn hàng" description={selectedOrder ? `Đơn #${getDisplayOrderCode(selectedOrder)}` : ''} onClose={closeOrderDetail} width="max-w-5xl">
         {loadingDetail ? (
           <div className="space-y-3">
             <div className="skeleton-block h-24" />
@@ -527,21 +563,26 @@ function AdminOrdersPage() {
 
             <div className="rounded-[24px] border border-slate-200 p-4">
               <h4 className="text-base font-semibold text-navy">Cập nhật trạng thái</h4>
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <label>
-                  <span className="field-label">Trạng thái đơn hàng</span>
-                  <select value={statusValue} onChange={(event) => setStatusValue(event.target.value)} className="select-field">
-                    {statusOptions.map((status) => (
-                      <option key={status} value={status}>
-                        {getStatusLabel(status)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Trạng thái đơn hàng</p>
+                  <div className="mt-3">
+                    <StatusBadge label={getStatusLabel(selectedOrder.status)} tone={getStatusTone(selectedOrder.status)} />
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Thanh toán</p>
+                  <div className="mt-3">
+                    <StatusBadge label={getPaymentStatusLabel(selectedOrder)} tone={getPaymentTone(selectedOrder)} />
+                  </div>
+                </div>
               </div>
+              <p className="mt-3 text-sm leading-6 text-slate-500">
+                {getWorkflowNote(selectedOrder) || getNextOrderAction(selectedOrder)?.description || 'Đơn hiện không còn bước xử lý tiếp theo.'}
+              </p>
               <div className="mt-4 flex justify-end">
-                <button type="button" onClick={handleUpdateOrder} disabled={updating} className="btn-secondary">
-                  {updating ? 'Đang cập nhật...' : 'Lưu trạng thái'}
+                <button type="button" onClick={() => handleUpdateOrder(getNextOrderAction(selectedOrder)?.status)} disabled={updating || !getNextOrderAction(selectedOrder)} className="btn-secondary">
+                  {updating ? 'Đang cập nhật...' : (getNextOrderAction(selectedOrder)?.label || 'Không có bước tiếp theo')}
                 </button>
               </div>
             </div>
