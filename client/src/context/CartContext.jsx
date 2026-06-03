@@ -584,9 +584,9 @@ export function CartProvider({ children }) {
     setCouponStatus(message ? { type: 'info', message } : { type: '', message: '' });
   }
 
-  function clearCouponStatus() {
+  const clearCouponStatus = useCallback(() => {
     setCouponStatus({ type: '', message: '' });
-  }
+  }, []);
 
   const value = {
     cartItems,
