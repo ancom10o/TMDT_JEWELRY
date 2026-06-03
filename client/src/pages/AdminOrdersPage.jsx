@@ -92,6 +92,10 @@ function getPaymentMethodLabel(method) {
 }
 
 function getPaymentStatusLabel(order) {
+  if (order?.paymentMethod === 'cod') {
+    return 'Thanh toán khi nhận hàng';
+  }
+
   if (!order?.orderCode) {
     return 'Đã thanh toán';
   }
@@ -107,6 +111,7 @@ function getPaymentStatusLabel(order) {
 }
 
 function getPaymentTone(order) {
+  if (order?.paymentMethod === 'cod') return 'info';
   if (!order?.orderCode) return 'success';
   if (order.paymentStatus === 'paid' || order.isPaid) return 'success';
   if (order.paymentStatus === 'failed') return 'danger';

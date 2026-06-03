@@ -80,7 +80,8 @@ function getPaymentMethodLabel(method) {
   return labels[method] || method || '--';
 }
 
-function getPaymentStatusLabel(status, isPaid) {
+function getPaymentStatusLabel(status, isPaid, method) {
+  if (method === 'cod') return 'Thanh toán khi nhận hàng';
   if (status === 'paid' || isPaid) return 'Đã thanh toán';
 
   const labels = {
@@ -92,7 +93,8 @@ function getPaymentStatusLabel(status, isPaid) {
   return labels[status] || 'Chưa thanh toán';
 }
 
-function getPaymentTone(status, isPaid) {
+function getPaymentTone(status, isPaid, method) {
+  if (method === 'cod') return 'info';
   if (status === 'paid' || isPaid) return 'success';
   if (status === 'pending') return 'warning';
   if (status === 'failed') return 'danger';
@@ -241,7 +243,7 @@ function OrderDetailPanel({ order, loading, updating, confirmingPayment, onUpdat
           <p className="mt-2"><span className="font-semibold text-navy">Ngày đặt:</span> {formatDateTime(order.createdAt)}</p>
           <p className="mt-2"><span className="font-semibold text-navy">Phương thức:</span> {getPaymentMethodLabel(order.paymentMethod)}</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <StatusBadge label={getPaymentStatusLabel(order.paymentStatus, order.isPaid)} tone={getPaymentTone(order.paymentStatus, order.isPaid)} />
+            <StatusBadge label={getPaymentStatusLabel(order.paymentStatus, order.isPaid, order.paymentMethod)} tone={getPaymentTone(order.paymentStatus, order.isPaid, order.paymentMethod)} />
             <StatusBadge label={getOrderStatusLabel(order.status)} tone={getOrderStatusTone(order.status)} />
           </div>
         </div>
@@ -274,7 +276,7 @@ function OrderDetailPanel({ order, loading, updating, confirmingPayment, onUpdat
           </div>
           <div className="flex flex-wrap gap-2">
             <StatusBadge label={getOrderStatusLabel(order.status)} tone={getOrderStatusTone(order.status)} />
-            <StatusBadge label={getPaymentStatusLabel(order.paymentStatus, order.isPaid)} tone={getPaymentTone(order.paymentStatus, order.isPaid)} />
+            <StatusBadge label={getPaymentStatusLabel(order.paymentStatus, order.isPaid, order.paymentMethod)} tone={getPaymentTone(order.paymentStatus, order.isPaid, order.paymentMethod)} />
           </div>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -287,7 +289,7 @@ function OrderDetailPanel({ order, loading, updating, confirmingPayment, onUpdat
           <div className="rounded-2xl bg-slate-50 p-4">
             <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Thanh toán</p>
             <div className="mt-3">
-              <StatusBadge label={getPaymentStatusLabel(order.paymentStatus, order.isPaid)} tone={getPaymentTone(order.paymentStatus, order.isPaid)} />
+              <StatusBadge label={getPaymentStatusLabel(order.paymentStatus, order.isPaid, order.paymentMethod)} tone={getPaymentTone(order.paymentStatus, order.isPaid, order.paymentMethod)} />
             </div>
           </div>
         </div>
@@ -723,7 +725,7 @@ function AdminDashboardPage() {
                 <td className="px-5 py-4 font-semibold text-slate-700">{formatCurrency(order.totalPrice)}</td>
                 <td className="px-5 py-4 text-slate-600">{getPaymentMethodLabel(order.paymentMethod)}</td>
                 <td className="px-5 py-4">
-                  <StatusBadge label={getPaymentStatusLabel(order.paymentStatus, order.isPaid)} tone={getPaymentTone(order.paymentStatus, order.isPaid)} />
+                  <StatusBadge label={getPaymentStatusLabel(order.paymentStatus, order.isPaid, order.paymentMethod)} tone={getPaymentTone(order.paymentStatus, order.isPaid, order.paymentMethod)} />
                 </td>
                 <td className="px-5 py-4">
                   <StatusBadge label={getOrderStatusLabel(order.status)} tone={getOrderStatusTone(order.status)} />
