@@ -4,6 +4,8 @@ import { useAuth } from '../hooks/useAuth.js';
 import { getMyOrders } from '../services/api.js';
 import { formatCurrency } from '../utils/format.js';
 
+const ORDERS_PER_PAGE = 8;
+
 function formatDate(value) {
   if (!value) {
     return '--';
@@ -45,6 +47,9 @@ function getPaymentLabel(isPaid) {
 }
 
 function getPaymentStatusLabel(order) {
+  if (order?.paymentMethod === 'cod') {
+    return 'Thanh toán khi nhận hàng';
+  }
   const labels = {
     unpaid: 'Chưa thanh toán',
     pending: 'Chờ xác nhận CK',
@@ -53,6 +58,18 @@ function getPaymentStatusLabel(order) {
   };
 
   return labels[order.paymentStatus] || getPaymentLabel(order.isPaid);
+}
+
+function getPaymentBadgeClass(order) {
+  if (order?.paymentMethod === 'cod') {
+    return 'bg-sky-100 text-sky-700';
+  }
+
+  if (order?.isPaid) {
+    return 'bg-emerald-100 text-emerald-700';
+  }
+
+  return 'bg-amber-100 text-amber-700';
 }
 
 function getDisplayOrderCode(order) {
@@ -64,6 +81,7 @@ function MyOrdersPage() {
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     async function fetchOrders() {
@@ -72,7 +90,9 @@ function MyOrdersPage() {
 
       try {
         const response = await getMyOrders(token);
-        setOrders(Array.isArray(response.orders) ? response.orders : []);
+        const nextOrders = Array.isArray(response.orders) ? response.orders : [];
+        setOrders(nextOrders);
+        setCurrentPage(1);
       } catch (requestError) {
         setError(requestError.response?.data?.message || 'Không thể tải danh sách đơn hàng.');
       } finally {
@@ -82,6 +102,9 @@ function MyOrdersPage() {
 
     fetchOrders();
   }, [token]);
+
+  const totalPages = Math.max(1, Math.ceil(orders.length / ORDERS_PER_PAGE));
+  const paginatedOrders = orders.slice((currentPage - 1) * ORDERS_PER_PAGE, currentPage * ORDERS_PER_PAGE);
 
   return (
     <section className="container-page py-10 sm:py-12">
@@ -138,7 +161,7 @@ function MyOrdersPage() {
                 </tr>
               </thead>
               <tbody>
-                {orders.map((order) => (
+                {paginatedOrders.map((order) => (
                   <tr key={order._id} className="border-t border-slate-200 text-sm text-slate-700 transition hover:bg-slate-50">
                     <td className="px-5 py-4 font-semibold text-navy">#{getDisplayOrderCode(order)}</td>
                     <td className="px-5 py-4">{formatDate(order.createdAt)}</td>
@@ -149,11 +172,7 @@ function MyOrdersPage() {
                       </span>
                     </td>
                     <td className="px-5 py-4">
-                      <span
-                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                          order.isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                        }`}
-                      >
+                      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getPaymentBadgeClass(order)}`}>
                         {getPaymentStatusLabel(order)}
                       </span>
                     </td>
@@ -167,6 +186,43 @@ function MyOrdersPage() {
               </tbody>
             </table>
           </div>
+          {totalPages > 1 ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-5 py-4">
+              <p className="text-sm text-slate-500">Trang {currentPage}/{totalPages}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  disabled={currentPage === 1}
+                  className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-navy transition hover:border-gold hover:text-gold disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Trước
+                </button>
+                {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
+                  <button
+                    key={pageNumber}
+                    type="button"
+                    onClick={() => setCurrentPage(pageNumber)}
+                    className={`h-10 min-w-10 rounded-full px-3 text-sm font-semibold transition ${
+                      pageNumber === currentPage
+                        ? 'bg-navy text-white'
+                        : 'border border-slate-300 text-navy hover:border-gold hover:text-gold'
+                    }`}
+                  >
+                    {pageNumber}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                  disabled={currentPage === totalPages}
+                  className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-navy transition hover:border-gold hover:text-gold disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Sau
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>

@@ -43,7 +43,10 @@ function getPaymentMethodLabel(method) {
   return labels[method] || method || '--';
 }
 
-function getPaymentStatusLabel(status, isPaid) {
+function getPaymentStatusLabel(method, status, isPaid) {
+  if (method === 'cod') {
+    return 'Thanh toán khi nhận hàng';
+  }
   const labels = {
     unpaid: 'Chưa thanh toán',
     pending: 'Chờ admin xác nhận',
@@ -252,8 +255,8 @@ function OrderDetailPage() {
             </div>
             <div className="flex items-center justify-between gap-3">
               <span>Thanh toán</span>
-              <span className={`font-semibold ${order.isPaid ? 'text-emerald-700' : 'text-amber-700'}`}>
-                {getPaymentStatusLabel(order.paymentStatus, order.isPaid)}
+              <span className={`font-semibold ${order.paymentMethod === 'cod' ? 'text-sky-700' : order.isPaid ? 'text-emerald-700' : 'text-amber-700'}`}>
+                {getPaymentStatusLabel(order.paymentMethod, order.paymentStatus, order.isPaid)}
               </span>
             </div>
             <div className="flex items-center justify-between gap-3">

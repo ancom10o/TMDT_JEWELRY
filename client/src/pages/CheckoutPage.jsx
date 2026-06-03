@@ -295,6 +295,14 @@ function CheckoutPage() {
     if (user.ward) setSelectedWardCode('profile');
   }, [createdOrder, user]);
 
+  useEffect(() => {
+    if (!createdOrder) {
+      return;
+    }
+
+    globalThis.scrollTo?.({ top: 0, behavior: 'auto' });
+  }, [createdOrder]);
+
   const provinceOptions = useMemo(
     () => filterOptions(provinces, formValues.province),
     [provinces, formValues.province]
