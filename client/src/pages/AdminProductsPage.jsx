@@ -53,7 +53,7 @@ const initialFormState = {
 const productStatusOptions = [
   { value: 'active', label: 'Đang bán' },
   { value: 'inactive', label: 'Tạm ẩn' },
-  { value: 'draft', label: 'Bản nháp' }
+  // { value: 'draft', label: 'Bản nháp' }
 ];
 
 const adminMaterialDetailOptions = [
@@ -172,7 +172,7 @@ function getStatusTone(product) {
 }
 
 function getStatusLabel(product) {
-  if (product.status === 'draft') return 'Bản nháp';
+  // if (product.status === 'draft') return 'Bản nháp';
   if (product.status !== 'active') return 'Tạm ẩn';
   if (product.stock <= 0) return 'Hết hàng';
   if (product.stock <= 10) return 'Sắp hết';
